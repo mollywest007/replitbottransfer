@@ -9,11 +9,14 @@ import {
   errorMessage,
   insufficientFundsMessage,
   walletMessage,
+  withdrawReviewMessage,
+  withdrawSuccessMessage,
   DEPLOYMENT_FEE,
 } from "./messages";
 import {
   mainMenuKeyboard,
   yesNoKeyboard,
+  withdrawConfirmKeyboard,
   optionalSkipKeyboard,
   authorityInlineKeyboard,
 } from "./keyboards";
@@ -21,6 +24,7 @@ import {
   deployToken,
   getDeploymentWallet,
   getWalletBalance,
+  withdrawSol,
 } from "./solana";
 import { logger } from "../lib/logger";
 
@@ -120,6 +124,49 @@ export function createBot(token: string): Telegraf<BotContext> {
       );
     }
   }
+
+  // ── Withdraw SOL ───────────────────────────────────────────────────────────
+  bot.command("withdraw", (ctx) => startWithdraw(ctx));
+  bot.hears("Withdraw SOL", (ctx) => startWithdraw(ctx));
+
+  async function startWithdraw(ctx: BotContext) {
+    ctx.session.step = "withdraw_address";
+    ctx.session.withdraw = {};
+    await ctx.replyWithMarkdown(
+      `*Withdraw SOL*\n\nSend the recipient Solana wallet address.`
+    );
+  }
+
+  bot.hears("Confirm Withdrawal", async (ctx) => {
+    if (ctx.session.step !== "withdraw_confirm") {
+      await ctx.replyWithMarkdown("Use /withdraw to start a withdrawal.");
+      return;
+    }
+
+    const { toAddress, amount } = ctx.session.withdraw;
+    if (!toAddress || !amount) {
+      await ctx.replyWithMarkdown("Withdrawal data missing. Use /withdraw to try again.");
+      return;
+    }
+
+    ctx.session.step = "idle";
+    await ctx.replyWithMarkdown(`Sending \`${amount} SOL\`...`);
+
+    try {
+      const signature = await withdrawSol(toAddress, amount);
+      await ctx.replyWithMarkdown(
+        withdrawSuccessMessage(toAddress, amount, signature),
+        mainMenuKeyboard()
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, "Withdrawal failed");
+      await ctx.replyWithMarkdown(
+        `*Withdrawal Failed*\n\n${msg}\n\nUse /withdraw to try again.`,
+        mainMenuKeyboard()
+      );
+    }
+  });
 
   // ── Create Token ───────────────────────────────────────────────────────────
   bot.command("create", (ctx) => startCreate(ctx));
@@ -347,6 +394,16 @@ export function createBot(token: string): Telegraf<BotContext> {
       return;
     }
 
+    if (ctx.session.step === "withdraw_address") {
+      await handleWithdrawAddress(ctx, text);
+      return;
+    }
+
+    if (ctx.session.step === "withdraw_amount") {
+      await handleWithdrawAmount(ctx, text);
+      return;
+    }
+
     // Fallback
     await ctx.replyWithMarkdown(mainMenuMessage(), mainMenuKeyboard());
   });
@@ -456,5 +513,62 @@ async function showAuthoritySettings(ctx: BotContext) {
       ctx.session.token.revokeMint!,
       ctx.session.token.revokeFreeze!
     )
+  );
+}
+
+// ── Withdrawal helpers ────────────────────────────────────────────────────────
+
+function isValidSolanaAddress(address: string): boolean {
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+}
+
+async function handleWithdrawAddress(ctx: BotContext, text: string) {
+  if (!isValidSolanaAddress(text)) {
+    await ctx.replyWithMarkdown(
+      "That doesn't look like a valid Solana address. Please try again."
+    );
+    return;
+  }
+  ctx.session.withdraw.toAddress = text;
+  ctx.session.step = "withdraw_amount";
+  await ctx.replyWithMarkdown(
+    `*How much SOL to withdraw?*\n\nEnter an amount (e.g. \`1.5\`).`
+  );
+}
+
+async function handleWithdrawAmount(ctx: BotContext, text: string) {
+  const amount = parseFloat(text);
+  if (isNaN(amount) || amount <= 0) {
+    await ctx.replyWithMarkdown(
+      "Invalid amount. Enter a positive number (e.g. `1.5`)."
+    );
+    return;
+  }
+
+  const walletAddress = getDeploymentWallet();
+  let balance = 0;
+  try {
+    balance = await getWalletBalance(walletAddress);
+  } catch {
+    await ctx.replyWithMarkdown(
+      "Could not fetch wallet balance. Please try again."
+    );
+    return;
+  }
+
+  // Keep a small reserve for network fees
+  if (amount + 0.01 > balance) {
+    await ctx.replyWithMarkdown(
+      `*Insufficient balance.*\n\nAvailable: \`${balance.toFixed(4)} SOL\`\nRequested: \`${amount} SOL\`\n\nReduce the amount and try again.`
+    );
+    return;
+  }
+
+  ctx.session.withdraw.amount = amount;
+  ctx.session.step = "withdraw_confirm";
+
+  await ctx.replyWithMarkdown(
+    withdrawReviewMessage(ctx.session.withdraw.toAddress!, amount, balance),
+    withdrawConfirmKeyboard()
   );
 }

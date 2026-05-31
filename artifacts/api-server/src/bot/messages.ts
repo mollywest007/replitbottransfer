@@ -9,6 +9,7 @@ export function mainMenuMessage(): string {
     `*Commands*\n` +
     `/create — Start token creation\n` +
     `/wallet — Deployment wallet info\n` +
+    `/withdraw — Withdraw SOL\n` +
     `/review — Review deployment details\n` +
     `/launch — Deploy your token\n` +
     `/reset — Start over\n` +
@@ -21,16 +22,44 @@ export function walletMessage(
   balance: number,
   keyConfigured: boolean
 ): string {
-  const shortAddr = `${address.slice(0, 6)}...${address.slice(-6)}`;
-  const explorerUrl = `https://solscan.io/account/${address}`;
   return (
     `*Deployment Wallet*\n\n` +
     `*Address*\n\`${address}\`\n\n` +
     `*Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
     `*Private Key*\n${keyConfigured ? "`Configured ✓`" : "`Not configured ✗`"}\n\n` +
     `*Network*\nSolana Mainnet\n\n` +
-    `*Explorer*\n${explorerUrl}\n\n` +
     `_This is a fixed deployment wallet. It cannot be changed._`
+  );
+}
+
+export function withdrawReviewMessage(
+  toAddress: string,
+  amount: number,
+  balance: number
+): string {
+  return (
+    `*Withdrawal Review*\n\n` +
+    `*To*\n\`${toAddress}\`\n\n` +
+    `*Amount*\n\`${amount} SOL\`\n\n` +
+    `*Current Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
+    `*Remaining After*\n\`${(balance - amount).toFixed(4)} SOL\`\n\n` +
+    `*Network*\nSolana Mainnet\n\n` +
+    `Confirm to send.`
+  );
+}
+
+export function withdrawSuccessMessage(
+  toAddress: string,
+  amount: number,
+  txSignature: string
+): string {
+  const shortTx = `${txSignature.slice(0, 8)}...${txSignature.slice(-8)}`;
+  return (
+    `*Withdrawal Sent*\n\n` +
+    `*To*\n\`${toAddress}\`\n\n` +
+    `*Amount*\n\`${amount} SOL\`\n\n` +
+    `*Transaction*\n\`${shortTx}\`\n\n` +
+    `*Status:* Confirmed`
   );
 }
 

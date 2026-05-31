@@ -4,7 +4,10 @@ export type DeploymentStep =
   | "collecting_optional"
   | "review"
   | "deploying"
-  | "done";
+  | "done"
+  | "withdraw_address"
+  | "withdraw_amount"
+  | "withdraw_confirm";
 
 export interface TokenConfig {
   name?: string;
@@ -20,10 +23,16 @@ export interface TokenConfig {
   revokeFreeze?: boolean;
 }
 
+export interface WithdrawDraft {
+  toAddress?: string;
+  amount?: number;
+}
+
 export interface SessionData {
   step: DeploymentStep;
   collectingField?: string;
   token: TokenConfig;
+  withdraw: WithdrawDraft;
   deploymentFee?: number;
   lastMessageId?: number;
 }
@@ -36,5 +45,6 @@ export function defaultSession(): SessionData {
       revokeMint: false,
       revokeFreeze: false,
     },
+    withdraw: {},
   };
 }

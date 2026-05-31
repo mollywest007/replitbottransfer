@@ -41,6 +41,31 @@ export async function getWalletBalance(address: string): Promise<number> {
   return lamports / LAMPORTS_PER_SOL;
 }
 
+export async function withdrawSol(
+  toAddress: string,
+  amountSol: number
+): Promise<string> {
+  const payer = getDeploymentKeypair();
+  const toPubkey = new PublicKey(toAddress);
+  const lamports = Math.round(amountSol * LAMPORTS_PER_SOL);
+
+  const tx = new Transaction().add(
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey,
+      lamports,
+    })
+  );
+
+  logger.info({ toAddress, amountSol }, "Withdrawing SOL");
+
+  const signature = await sendAndConfirmTransaction(connection, tx, [payer], {
+    commitment: "confirmed",
+  });
+
+  return signature;
+}
+
 export interface DeployResult {
   mintAddress: string;
   txSignature: string;

@@ -3,8 +3,9 @@ import { Markup } from "telegraf";
 export function mainMenuKeyboard() {
   return Markup.keyboard([
     ["Create Token", "Wallet Info"],
-    ["Review Deployment", "Launch Token"],
-    ["Help", "Reset"],
+    ["Withdraw SOL", "Review Deployment"],
+    ["Launch Token", "Help"],
+    ["Reset"],
   ])
     .resize()
     .oneTime(false);
@@ -12,6 +13,12 @@ export function mainMenuKeyboard() {
 
 export function yesNoKeyboard() {
   return Markup.keyboard([["Yes, Launch", "Cancel"]])
+    .resize()
+    .oneTime(true);
+}
+
+export function withdrawConfirmKeyboard() {
+  return Markup.keyboard([["Confirm Withdrawal", "Cancel"]])
     .resize()
     .oneTime(true);
 }
