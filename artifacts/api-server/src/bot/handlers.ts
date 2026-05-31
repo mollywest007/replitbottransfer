@@ -11,6 +11,13 @@ import {
   walletMessage,
   withdrawReviewMessage,
   withdrawSuccessMessage,
+  panelMessage,
+  burnConfirmMessage,
+  burnSuccessMessage,
+  transferTokenReviewMessage,
+  transferTokenSuccessMessage,
+  revokeConfirmMessage,
+  revokeSuccessMessage,
   DEPLOYMENT_FEE,
 } from "./messages";
 import {
@@ -21,12 +28,21 @@ import {
   withdrawInputKeyboard,
   withdrawConfirmKeyboard,
   authorityInlineKeyboard,
+  tokenPanelKeyboard,
+  burnConfirmKeyboard,
+  revokeConfirmKeyboard,
+  panelTransferConfirmKeyboard,
 } from "./keyboards";
 import {
   deployToken,
   getDeploymentWallet,
   getWalletBalance,
   withdrawSol,
+  getTokenBalance,
+  burnTokens,
+  transferSplTokens,
+  revokeMintAuthority,
+  revokeFreezeAuthority,
 } from "./solana";
 import { logger } from "../lib/logger";
 
@@ -74,6 +90,40 @@ function pushHistory(ctx: BotContext) {
   ctx.session.history.push(entry);
 }
 
+function isValidSolanaAddress(address: string): boolean {
+  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+}
+
+// ── Panel helper ──────────────────────────────────────────────────────────────
+
+async function showPanel(ctx: BotContext, mintAddress?: string) {
+  const mint = mintAddress ?? ctx.session.lastMint;
+  if (!mint) {
+    await ctx.replyWithMarkdown(
+      "*No token found.*\n\nDeploy a token first via /create and /launch, or the panel will appear automatically after deployment.",
+      mainMenuKeyboard()
+    );
+    return;
+  }
+
+  const wallet = getDeploymentWallet();
+  const symbol = ctx.session.lastSymbol ?? "TOKEN";
+  const decimals = ctx.session.lastDecimals ?? 9;
+
+  try {
+    const bal = await getTokenBalance(mint, wallet);
+    await ctx.replyWithMarkdown(
+      panelMessage(mint, symbol, bal.uiAmount, bal.decimals),
+      tokenPanelKeyboard(mint)
+    );
+  } catch {
+    await ctx.replyWithMarkdown(
+      panelMessage(mint, symbol, 0, decimals) + "\n\n_Could not fetch live balance._",
+      tokenPanelKeyboard(mint)
+    );
+  }
+}
+
 export function createBot(token: string): Telegraf<BotContext> {
   const bot = new Telegraf<BotContext>(token);
 
@@ -83,24 +133,17 @@ export function createBot(token: string): Telegraf<BotContext> {
   bot.hears("◀ Back", async (ctx) => {
     const entry = ctx.session.history.pop();
     if (!entry) {
-      await ctx.replyWithMarkdown(
-        "You're at the beginning.",
-        mainMenuKeyboard()
-      );
+      await ctx.replyWithMarkdown("You're at the beginning.", mainMenuKeyboard());
       return;
     }
 
     ctx.session.step = entry.step;
     ctx.session.collectingField = entry.collectingField;
 
-    // Re-show the appropriate prompt for where they're going back to
     if (entry.step === "collecting_required" && entry.collectingField) {
       const isFirst = entry.collectingField === "name";
       const prompt = REQUIRED_PROMPTS[entry.collectingField]!;
-      await ctx.replyWithMarkdown(
-        prompt,
-        isFirst ? undefined : backKeyboard()
-      );
+      await ctx.replyWithMarkdown(prompt, isFirst ? undefined : backKeyboard());
     } else if (entry.step === "collecting_optional" && entry.collectingField) {
       const isFirst = entry.collectingField === OPTIONAL_FIELDS[0];
       const prompt = OPTIONAL_PROMPTS[entry.collectingField]!;
@@ -152,18 +195,12 @@ export function createBot(token: string): Telegraf<BotContext> {
 
   bot.command("reset", async (ctx) => {
     ctx.session = defaultSession();
-    await ctx.replyWithMarkdown(
-      "Session cleared. Ready to start fresh.",
-      mainMenuKeyboard()
-    );
+    await ctx.replyWithMarkdown("Session cleared. Ready to start fresh.", mainMenuKeyboard());
   });
 
   bot.hears("Reset", async (ctx) => {
     ctx.session = defaultSession();
-    await ctx.replyWithMarkdown(
-      "Session cleared. Ready to start fresh.",
-      mainMenuKeyboard()
-    );
+    await ctx.replyWithMarkdown("Session cleared. Ready to start fresh.", mainMenuKeyboard());
   });
 
   // ── Wallet Info ────────────────────────────────────────────────────────────
@@ -181,10 +218,7 @@ export function createBot(token: string): Telegraf<BotContext> {
     }
     try {
       const balance = await getWalletBalance(address);
-      await ctx.replyWithMarkdown(
-        walletMessage(address, balance, keyConfigured),
-        mainMenuKeyboard()
-      );
+      await ctx.replyWithMarkdown(walletMessage(address, balance, keyConfigured), mainMenuKeyboard());
     } catch {
       await ctx.replyWithMarkdown(
         walletMessage(address, 0, keyConfigured) +
@@ -249,8 +283,7 @@ export function createBot(token: string): Telegraf<BotContext> {
     ctx.session.step = "collecting_required";
     ctx.session.collectingField = "name";
     await ctx.replyWithMarkdown(
-      "*Create Token*\n\nLet's collect the required details.\n\n" +
-        REQUIRED_PROMPTS["name"]!
+      "*Create Token*\n\nLet's collect the required details.\n\n" + REQUIRED_PROMPTS["name"]!
     );
   }
 
@@ -267,10 +300,7 @@ export function createBot(token: string): Telegraf<BotContext> {
       return;
     }
     const wallet = getDeploymentWallet();
-    await ctx.replyWithMarkdown(
-      reviewMessage(t, wallet, DEPLOYMENT_FEE),
-      mainMenuKeyboard()
-    );
+    await ctx.replyWithMarkdown(reviewMessage(t, wallet, DEPLOYMENT_FEE), mainMenuKeyboard());
   }
 
   // ── Launch ─────────────────────────────────────────────────────────────────
@@ -295,15 +325,12 @@ export function createBot(token: string): Telegraf<BotContext> {
     const balance = await getWalletBalance(wallet);
 
     if (balance < DEPLOYMENT_FEE + 0.05) {
-      await ctx.replyWithMarkdown(
-        insufficientFundsMessage(balance, DEPLOYMENT_FEE)
-      );
+      await ctx.replyWithMarkdown(insufficientFundsMessage(balance, DEPLOYMENT_FEE));
       return;
     }
 
     await ctx.replyWithMarkdown(
-      reviewMessage(t, wallet, DEPLOYMENT_FEE) +
-        "\n\n*Confirm deployment?*",
+      reviewMessage(t, wallet, DEPLOYMENT_FEE) + "\n\n*Confirm deployment?*",
       yesNoKeyboard()
     );
     ctx.session.step = "review";
@@ -322,17 +349,21 @@ export function createBot(token: string): Telegraf<BotContext> {
 
     try {
       const result = await deployToken(ctx.session.token, DEPLOYMENT_FEE);
+
+      // Store deployed token info in session for the control panel
+      ctx.session.lastMint = result.mintAddress;
+      ctx.session.lastSymbol = ctx.session.token.symbol;
+      ctx.session.lastDecimals = ctx.session.token.decimals ?? 9;
       ctx.session.step = "done";
       ctx.session.history = [];
+
       await ctx.replyWithMarkdown(
-        successMessage(
-          result.mintAddress,
-          result.txSignature,
-          result.solscanUrl,
-          result.timestamp
-        ),
+        successMessage(result.mintAddress, result.txSignature, result.solscanUrl, result.timestamp),
         mainMenuKeyboard()
       );
+
+      // Auto-show the control panel after a moment
+      await showPanel(ctx, result.mintAddress);
     } catch (err) {
       ctx.session.step = "idle";
       const msg = err instanceof Error ? err.message : String(err);
@@ -342,9 +373,241 @@ export function createBot(token: string): Telegraf<BotContext> {
   });
 
   bot.hears("Cancel", async (ctx) => {
+    // Handle panel transfer cancel
+    if (
+      ctx.session.step === "panel_transfer_address" ||
+      ctx.session.step === "panel_transfer_amount"
+    ) {
+      ctx.session.step = "idle";
+      ctx.session.panelTransfer = {};
+      ctx.session.history = [];
+      await showPanel(ctx);
+      return;
+    }
+
     ctx.session.step = "idle";
     ctx.session.history = [];
     await ctx.replyWithMarkdown("Cancelled.", mainMenuKeyboard());
+  });
+
+  // ── Token Control Panel ────────────────────────────────────────────────────
+  bot.command("panel", (ctx) => showPanel(ctx));
+  bot.hears("Token Panel", (ctx) => showPanel(ctx));
+
+  // ── Panel: Check Balance ───────────────────────────────────────────────────
+  bot.action(/^panel_balance:(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const mint = ctx.match[1]!;
+    const wallet = getDeploymentWallet();
+    const symbol = ctx.session.lastSymbol ?? "TOKEN";
+    const decimals = ctx.session.lastDecimals ?? 9;
+
+    try {
+      const bal = await getTokenBalance(mint, wallet);
+      await ctx.replyWithMarkdown(
+        `*Token Balance*\n\n` +
+          `*Token:* \`${symbol}\`\n` +
+          `*Balance:* \`${bal.uiAmount.toLocaleString(undefined, { maximumFractionDigits: bal.decimals })} ${symbol}\`\n` +
+          `*Mint:* \`${mint}\``
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await ctx.replyWithMarkdown(
+        `*Could not fetch balance.*\n\n${msg}`,
+        mainMenuKeyboard()
+      );
+    }
+  });
+
+  // ── Panel: Burn Half ───────────────────────────────────────────────────────
+  bot.action(/^panel_burn_half:(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const mint = ctx.match[1]!;
+    const wallet = getDeploymentWallet();
+    const symbol = ctx.session.lastSymbol ?? "TOKEN";
+
+    try {
+      const bal = await getTokenBalance(mint, wallet);
+      if (bal.rawAmount === BigInt(0)) {
+        await ctx.replyWithMarkdown("*No tokens to burn.* Your balance is 0.");
+        return;
+      }
+      const halfAmount = bal.rawAmount / BigInt(2);
+      const halfUi = Number(halfAmount) / Math.pow(10, bal.decimals);
+
+      await ctx.replyWithMarkdown(
+        burnConfirmMessage(symbol, halfUi, "half"),
+        burnConfirmKeyboard(mint, "half")
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await ctx.replyWithMarkdown(`*Error:* ${msg}`);
+    }
+  });
+
+  // ── Panel: Burn All ────────────────────────────────────────────────────────
+  bot.action(/^panel_burn_all:(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const mint = ctx.match[1]!;
+    const wallet = getDeploymentWallet();
+    const symbol = ctx.session.lastSymbol ?? "TOKEN";
+
+    try {
+      const bal = await getTokenBalance(mint, wallet);
+      if (bal.rawAmount === BigInt(0)) {
+        await ctx.replyWithMarkdown("*No tokens to burn.* Your balance is 0.");
+        return;
+      }
+      const allUi = bal.uiAmount;
+
+      await ctx.replyWithMarkdown(
+        burnConfirmMessage(symbol, allUi, "all"),
+        burnConfirmKeyboard(mint, "all")
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await ctx.replyWithMarkdown(`*Error:* ${msg}`);
+    }
+  });
+
+  // ── Panel: Burn confirm ────────────────────────────────────────────────────
+  bot.action(/^panel_burn_confirm:(half|all):(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery("Burning...");
+    const portion = ctx.match[1] as "half" | "all";
+    const mint = ctx.match[2]!;
+    const wallet = getDeploymentWallet();
+    const symbol = ctx.session.lastSymbol ?? "TOKEN";
+
+    await ctx.replyWithMarkdown(`⏳ Burning tokens, please wait...`);
+
+    try {
+      const bal = await getTokenBalance(mint, wallet);
+      if (bal.rawAmount === BigInt(0)) {
+        await ctx.replyWithMarkdown("*No tokens to burn.* Balance is already 0.");
+        return;
+      }
+
+      const rawToBurn =
+        portion === "all" ? bal.rawAmount : bal.rawAmount / BigInt(2);
+      const uiToBurn = Number(rawToBurn) / Math.pow(10, bal.decimals);
+
+      const sig = await burnTokens(mint, rawToBurn);
+      await ctx.replyWithMarkdown(
+        burnSuccessMessage(symbol, uiToBurn, sig),
+        tokenPanelKeyboard(mint)
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, "Burn failed");
+      await ctx.replyWithMarkdown(`*Burn Failed*\n\n${msg}`, tokenPanelKeyboard(mint));
+    }
+  });
+
+  // ── Panel: Transfer Tokens ─────────────────────────────────────────────────
+  bot.action(/^panel_transfer:(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const mint = ctx.match[1]!;
+    ctx.session.lastMint = mint;
+    ctx.session.step = "panel_transfer_address";
+    ctx.session.panelTransfer = {};
+
+    await ctx.replyWithMarkdown(
+      `*Transfer Tokens*\n\nEnter the *recipient Solana address*:`,
+      { reply_markup: { remove_keyboard: true } }
+    );
+  });
+
+  // ── Panel: Revoke Mint Authority ───────────────────────────────────────────
+  bot.action(/^panel_revoke_mint:(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const mint = ctx.match[1]!;
+    const symbol = ctx.session.lastSymbol ?? "TOKEN";
+
+    await ctx.replyWithMarkdown(
+      revokeConfirmMessage("mint", symbol),
+      revokeConfirmKeyboard(mint, "mint")
+    );
+  });
+
+  // ── Panel: Revoke Freeze Authority ─────────────────────────────────────────
+  bot.action(/^panel_revoke_freeze:(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const mint = ctx.match[1]!;
+    const symbol = ctx.session.lastSymbol ?? "TOKEN";
+
+    await ctx.replyWithMarkdown(
+      revokeConfirmMessage("freeze", symbol),
+      revokeConfirmKeyboard(mint, "freeze")
+    );
+  });
+
+  // ── Panel: Revoke confirm ──────────────────────────────────────────────────
+  bot.action(/^panel_revoke_confirm:(mint|freeze):(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery("Revoking...");
+    const type = ctx.match[1] as "mint" | "freeze";
+    const mint = ctx.match[2]!;
+    const symbol = ctx.session.lastSymbol ?? "TOKEN";
+
+    await ctx.replyWithMarkdown(`⏳ Revoking authority, please wait...`);
+
+    try {
+      const sig =
+        type === "mint"
+          ? await revokeMintAuthority(mint)
+          : await revokeFreezeAuthority(mint);
+
+      await ctx.replyWithMarkdown(
+        revokeSuccessMessage(type, symbol, sig),
+        tokenPanelKeyboard(mint)
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err, type }, "Revoke authority failed");
+      await ctx.replyWithMarkdown(`*Revoke Failed*\n\n${msg}`, tokenPanelKeyboard(mint));
+    }
+  });
+
+  // ── Panel: Cancel inline ───────────────────────────────────────────────────
+  bot.action(/^panel_cancel:(.+)$/, async (ctx) => {
+    await ctx.answerCbQuery("Cancelled");
+    const mint = ctx.match[1]!;
+    await ctx.replyWithMarkdown("Cancelled.", tokenPanelKeyboard(mint));
+  });
+
+  // ── Panel: Confirm Transfer (reply keyboard) ───────────────────────────────
+  bot.hears("Confirm Transfer", async (ctx) => {
+    if (ctx.session.step !== "panel_transfer_amount") {
+      await ctx.replyWithMarkdown("Nothing to confirm. Use Token Panel to start a transfer.");
+      return;
+    }
+
+    const { toAddress, rawAmount } = ctx.session.panelTransfer;
+    const mint = ctx.session.lastMint;
+    const symbol = ctx.session.lastSymbol ?? "TOKEN";
+    const decimals = ctx.session.lastDecimals ?? 9;
+
+    if (!toAddress || rawAmount === undefined || !mint) {
+      await ctx.replyWithMarkdown("Transfer data is missing. Please try again.");
+      return;
+    }
+
+    ctx.session.step = "idle";
+    const uiAmount = Number(rawAmount) / Math.pow(10, decimals);
+    await ctx.replyWithMarkdown(`⏳ Transferring tokens, please wait...`);
+
+    try {
+      const sig = await transferSplTokens(mint, toAddress, rawAmount);
+      ctx.session.panelTransfer = {};
+      await ctx.replyWithMarkdown(
+        transferTokenSuccessMessage(toAddress, uiAmount, symbol, sig),
+        tokenPanelKeyboard(mint)
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, "Token transfer failed");
+      ctx.session.panelTransfer = {};
+      await ctx.replyWithMarkdown(`*Transfer Failed*\n\n${msg}`, tokenPanelKeyboard(mint));
+    }
   });
 
   // ── Optional fields ────────────────────────────────────────────────────────
@@ -365,10 +628,8 @@ export function createBot(token: string): Telegraf<BotContext> {
   bot.action("toggle_mint", async (ctx) => {
     ctx.session.token.revokeMint = !ctx.session.token.revokeMint;
     await ctx.editMessageReplyMarkup(
-      authorityInlineKeyboard(
-        ctx.session.token.revokeMint!,
-        ctx.session.token.revokeFreeze!
-      ).reply_markup
+      authorityInlineKeyboard(ctx.session.token.revokeMint!, ctx.session.token.revokeFreeze!)
+        .reply_markup
     );
     await ctx.answerCbQuery();
   });
@@ -376,10 +637,8 @@ export function createBot(token: string): Telegraf<BotContext> {
   bot.action("toggle_freeze", async (ctx) => {
     ctx.session.token.revokeFreeze = !ctx.session.token.revokeFreeze;
     await ctx.editMessageReplyMarkup(
-      authorityInlineKeyboard(
-        ctx.session.token.revokeMint!,
-        ctx.session.token.revokeFreeze!
-      ).reply_markup
+      authorityInlineKeyboard(ctx.session.token.revokeMint!, ctx.session.token.revokeFreeze!)
+        .reply_markup
     );
     await ctx.answerCbQuery();
   });
@@ -390,8 +649,7 @@ export function createBot(token: string): Telegraf<BotContext> {
     await ctx.answerCbQuery("Settings saved");
     const wallet = getDeploymentWallet();
     await ctx.replyWithMarkdown(
-      reviewMessage(ctx.session.token, wallet, DEPLOYMENT_FEE) +
-        "\n\nUse /launch when ready.",
+      reviewMessage(ctx.session.token, wallet, DEPLOYMENT_FEE) + "\n\nUse /launch when ready.",
       mainMenuKeyboard()
     );
   });
@@ -438,9 +696,7 @@ export function createBot(token: string): Telegraf<BotContext> {
 
     const doc = ctx.message.document;
     if (!doc.mime_type?.startsWith("image/")) {
-      await ctx.replyWithMarkdown(
-        "Please send an image file (PNG, JPG, etc.) or a URL."
-      );
+      await ctx.replyWithMarkdown("Please send an image file (PNG, JPG, etc.) or a URL.");
       return;
     }
 
@@ -479,6 +735,16 @@ export function createBot(token: string): Telegraf<BotContext> {
 
     if (ctx.session.step === "withdraw_amount") {
       await handleWithdrawAmount(ctx, text);
+      return;
+    }
+
+    if (ctx.session.step === "panel_transfer_address") {
+      await handlePanelTransferAddress(ctx, text);
+      return;
+    }
+
+    if (ctx.session.step === "panel_transfer_amount") {
+      await handlePanelTransferAmount(ctx, text);
       return;
     }
 
@@ -543,7 +809,6 @@ async function advanceRequired(ctx: BotContext) {
     ctx.session.collectingField = next;
     await ctx.replyWithMarkdown(REQUIRED_PROMPTS[next]!, backKeyboard());
   } else {
-    // Move to optional
     ctx.session.step = "collecting_optional";
     ctx.session.collectingField = OPTIONAL_FIELDS[0];
     await ctx.replyWithMarkdown(
@@ -557,7 +822,12 @@ async function advanceRequired(ctx: BotContext) {
 async function handleOptionalInput(ctx: BotContext, text: string) {
   const field = ctx.session.collectingField as keyof SessionData["token"];
 
-  if (field === "logoUrl" || field === "website" || field === "telegram" || field === "twitter") {
+  if (
+    field === "logoUrl" ||
+    field === "website" ||
+    field === "telegram" ||
+    field === "twitter"
+  ) {
     if (!text.startsWith("http://") && !text.startsWith("https://")) {
       await ctx.replyWithMarkdown(
         "Please send a valid URL starting with `https://`, or tap *Skip*."
@@ -589,18 +859,11 @@ async function showAuthoritySettings(ctx: BotContext) {
   ctx.session.step = "idle";
   await ctx.replyWithMarkdown(
     "*Authority Settings*\n\nConfigure mint and freeze authority.\nRevoking makes the token immutable.",
-    authorityInlineKeyboard(
-      ctx.session.token.revokeMint!,
-      ctx.session.token.revokeFreeze!
-    )
+    authorityInlineKeyboard(ctx.session.token.revokeMint!, ctx.session.token.revokeFreeze!)
   );
 }
 
 // ── Withdrawal helpers ────────────────────────────────────────────────────────
-
-function isValidSolanaAddress(address: string): boolean {
-  return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
-}
 
 async function handleWithdrawAddress(ctx: BotContext, text: string) {
   if (!isValidSolanaAddress(text)) {
@@ -621,9 +884,7 @@ async function handleWithdrawAddress(ctx: BotContext, text: string) {
 async function handleWithdrawAmount(ctx: BotContext, text: string) {
   const amount = parseFloat(text);
   if (isNaN(amount) || amount <= 0) {
-    await ctx.replyWithMarkdown(
-      "Invalid amount. Enter a positive number (e.g. `1.5`)."
-    );
+    await ctx.replyWithMarkdown("Invalid amount. Enter a positive number (e.g. `1.5`).");
     return;
   }
 
@@ -632,9 +893,7 @@ async function handleWithdrawAmount(ctx: BotContext, text: string) {
   try {
     balance = await getWalletBalance(walletAddress);
   } catch {
-    await ctx.replyWithMarkdown(
-      "Could not fetch wallet balance. Please try again."
-    );
+    await ctx.replyWithMarkdown("Could not fetch wallet balance. Please try again.");
     return;
   }
 
@@ -652,5 +911,43 @@ async function handleWithdrawAmount(ctx: BotContext, text: string) {
   await ctx.replyWithMarkdown(
     withdrawReviewMessage(ctx.session.withdraw.toAddress!, amount, balance),
     withdrawConfirmKeyboard()
+  );
+}
+
+// ── Panel transfer helpers ────────────────────────────────────────────────────
+
+async function handlePanelTransferAddress(ctx: BotContext, text: string) {
+  if (!isValidSolanaAddress(text)) {
+    await ctx.replyWithMarkdown(
+      "That doesn't look like a valid Solana address. Please try again."
+    );
+    return;
+  }
+
+  ctx.session.panelTransfer.toAddress = text;
+  ctx.session.step = "panel_transfer_amount";
+
+  await ctx.replyWithMarkdown(
+    `*How many tokens to send?*\n\nEnter the number of tokens (e.g. \`1000000\`).`
+  );
+}
+
+async function handlePanelTransferAmount(ctx: BotContext, text: string) {
+  const num = Number(text.replace(/[,_]/g, ""));
+  if (isNaN(num) || num <= 0) {
+    await ctx.replyWithMarkdown("Invalid amount. Enter a positive number.");
+    return;
+  }
+
+  const decimals = ctx.session.lastDecimals ?? 9;
+  const rawAmount = BigInt(Math.round(num * Math.pow(10, decimals)));
+  ctx.session.panelTransfer.rawAmount = rawAmount;
+
+  const symbol = ctx.session.lastSymbol ?? "TOKEN";
+  const toAddress = ctx.session.panelTransfer.toAddress!;
+
+  await ctx.replyWithMarkdown(
+    transferTokenReviewMessage(toAddress, num, symbol),
+    panelTransferConfirmKeyboard()
   );
 }

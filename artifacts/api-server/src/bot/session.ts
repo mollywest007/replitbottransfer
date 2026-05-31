@@ -7,7 +7,10 @@ export type DeploymentStep =
   | "done"
   | "withdraw_address"
   | "withdraw_amount"
-  | "withdraw_confirm";
+  | "withdraw_confirm"
+  | "panel_transfer_address"
+  | "panel_transfer_amount"
+  | "panel_burn_amount";
 
 export interface HistoryEntry {
   step: DeploymentStep;
@@ -33,11 +36,20 @@ export interface WithdrawDraft {
   amount?: number;
 }
 
+export interface PanelTransferDraft {
+  toAddress?: string;
+  rawAmount?: bigint;
+}
+
 export interface SessionData {
   step: DeploymentStep;
   collectingField?: string;
   token: TokenConfig;
   withdraw: WithdrawDraft;
+  panelTransfer: PanelTransferDraft;
+  lastMint?: string;
+  lastSymbol?: string;
+  lastDecimals?: number;
   history: HistoryEntry[];
   deploymentFee?: number;
   lastMessageId?: number;
@@ -52,6 +64,7 @@ export function defaultSession(): SessionData {
       revokeFreeze: false,
     },
     withdraw: {},
+    panelTransfer: {},
     history: [],
   };
 }

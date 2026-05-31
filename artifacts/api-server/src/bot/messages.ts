@@ -10,13 +10,13 @@ export function mainMenuMessage(): string {
     `/create — Start token creation\n` +
     `/wallet — Deployment wallet info\n` +
     `/withdraw — Withdraw SOL\n` +
+    `/panel — Token control panel\n` +
     `/review — Review deployment details\n` +
     `/launch — Deploy your token\n` +
     `/reset — Start over\n` +
     `/help — Show help`
   );
 }
-
 
 export function walletMessage(
   address: string,
@@ -30,6 +30,109 @@ export function walletMessage(
     `*Private Key*\n${keyConfigured ? "`Configured ✓`" : "`Not configured ✗`"}\n\n` +
     `*Network*\nSolana Mainnet\n\n` +
     `_This is a fixed deployment wallet. It cannot be changed._`
+  );
+}
+
+export function panelMessage(
+  mintAddress: string,
+  symbol: string,
+  uiBalance: number,
+  decimals: number
+): string {
+  return (
+    `*Token Control Panel*\n\n` +
+    `*Token*\n\`${symbol}\`\n\n` +
+    `*Mint*\n\`${mintAddress}\`\n\n` +
+    `*Wallet Balance*\n\`${uiBalance.toLocaleString(undefined, { maximumFractionDigits: decimals })} ${symbol}\`\n\n` +
+    `Choose an action:`
+  );
+}
+
+export function burnConfirmMessage(
+  symbol: string,
+  uiAmount: number,
+  portion: "half" | "all"
+): string {
+  return (
+    `*Confirm Burn*\n\n` +
+    `You are about to burn *${portion === "half" ? "half" : "all"}* of your ${symbol} tokens.\n\n` +
+    `*Amount:* \`${uiAmount.toLocaleString()} ${symbol}\`\n\n` +
+    `This is *irreversible.* The tokens will be permanently destroyed.`
+  );
+}
+
+export function burnSuccessMessage(
+  symbol: string,
+  uiAmount: number,
+  txSignature: string
+): string {
+  const shortTx = `${txSignature.slice(0, 8)}...${txSignature.slice(-8)}`;
+  return (
+    `*Tokens Burned*\n\n` +
+    `*Amount:* \`${uiAmount.toLocaleString()} ${symbol}\`\n\n` +
+    `*Transaction:* \`${shortTx}\`\n\n` +
+    `*Status:* Confirmed`
+  );
+}
+
+export function transferTokenReviewMessage(
+  toAddress: string,
+  uiAmount: number,
+  symbol: string
+): string {
+  return (
+    `*Transfer Review*\n\n` +
+    `*To*\n\`${toAddress}\`\n\n` +
+    `*Amount*\n\`${uiAmount.toLocaleString()} ${symbol}\`\n\n` +
+    `Confirm to send.`
+  );
+}
+
+export function transferTokenSuccessMessage(
+  toAddress: string,
+  uiAmount: number,
+  symbol: string,
+  txSignature: string
+): string {
+  const shortTx = `${txSignature.slice(0, 8)}...${txSignature.slice(-8)}`;
+  return (
+    `*Transfer Sent*\n\n` +
+    `*To:* \`${toAddress}\`\n` +
+    `*Amount:* \`${uiAmount.toLocaleString()} ${symbol}\`\n` +
+    `*Transaction:* \`${shortTx}\`\n\n` +
+    `*Status:* Confirmed`
+  );
+}
+
+export function revokeConfirmMessage(
+  type: "mint" | "freeze",
+  symbol: string
+): string {
+  const label = type === "mint" ? "Mint Authority" : "Freeze Authority";
+  const effect =
+    type === "mint"
+      ? "No more tokens can ever be minted."
+      : "Token accounts can no longer be frozen.";
+  return (
+    `*Confirm Revoke ${label}*\n\n` +
+    `Token: \`${symbol}\`\n\n` +
+    `${effect}\n\n` +
+    `This is *irreversible.*`
+  );
+}
+
+export function revokeSuccessMessage(
+  type: "mint" | "freeze",
+  symbol: string,
+  txSignature: string
+): string {
+  const label = type === "mint" ? "Mint Authority" : "Freeze Authority";
+  const shortTx = `${txSignature.slice(0, 8)}...${txSignature.slice(-8)}`;
+  return (
+    `*${label} Revoked*\n\n` +
+    `Token: \`${symbol}\`\n` +
+    `*Transaction:* \`${shortTx}\`\n\n` +
+    `*Status:* Confirmed`
   );
 }
 
@@ -72,7 +175,8 @@ export function helpMessage(): string {
     `*How it works:*\n` +
     `1. /create — Enter token details\n` +
     `2. /review — Check everything looks right\n` +
-    `3. /launch — Deploy on-chain\n\n` +
+    `3. /launch — Deploy on-chain\n` +
+    `4. /panel — Manage your token\n\n` +
     `*Required fields:* Name, Symbol, Supply, Decimals\n\n` +
     `*Optional:* Description, Logo, Website, Telegram, Twitter, authority settings\n\n` +
     `The bot uses a single dedicated deployment wallet. You cannot change this wallet.`
@@ -125,7 +229,8 @@ export function successMessage(
     `*Transaction*\n\`${shortMint}\` — \`${shortTx}\`\n\n` +
     `*Solscan*\n${solscanUrl}\n\n` +
     `*Status:* Confirmed\n` +
-    `*Time:* ${new Date(timestamp).toUTCString()}`
+    `*Time:* ${new Date(timestamp).toUTCString()}\n\n` +
+    `Tap *Token Panel* to manage your token.`
   );
 }
 

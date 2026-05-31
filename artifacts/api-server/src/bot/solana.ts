@@ -11,7 +11,14 @@ import {
   createInitializeMintInstruction,
   createAssociatedTokenAccountInstruction,
   createMintToInstruction,
+  createBurnInstruction,
+  createTransferInstruction,
+  createSetAuthorityInstruction,
   getAssociatedTokenAddress,
+  getOrCreateAssociatedTokenAccount,
+  getAccount,
+  getMint,
+  AuthorityType,
   MINT_SIZE,
   TOKEN_PROGRAM_ID,
   getMinimumBalanceForRentExemptMint,
@@ -41,6 +48,142 @@ export async function getWalletBalance(address: string): Promise<number> {
   return lamports / LAMPORTS_PER_SOL;
 }
 
+// ── Token balance ─────────────────────────────────────────────────────────────
+
+export interface TokenBalance {
+  rawAmount: bigint;
+  decimals: number;
+  uiAmount: number;
+}
+
+export async function getTokenBalance(
+  mintAddress: string,
+  walletAddress: string
+): Promise<TokenBalance> {
+  const mint = new PublicKey(mintAddress);
+  const wallet = new PublicKey(walletAddress);
+  const ata = await getAssociatedTokenAddress(mint, wallet);
+
+  try {
+    const [account, mintInfo] = await Promise.all([
+      getAccount(connection, ata),
+      getMint(connection, mint),
+    ]);
+    const rawAmount = account.amount;
+    const decimals = mintInfo.decimals;
+    const uiAmount = Number(rawAmount) / Math.pow(10, decimals);
+    return { rawAmount, decimals, uiAmount };
+  } catch {
+    // ATA may not exist yet or token balance is zero
+    const mintInfo = await getMint(connection, mint).catch(() => ({ decimals: 9 }));
+    return { rawAmount: BigInt(0), decimals: mintInfo.decimals, uiAmount: 0 };
+  }
+}
+
+// ── Burn ──────────────────────────────────────────────────────────────────────
+
+export async function burnTokens(
+  mintAddress: string,
+  rawAmount: bigint
+): Promise<string> {
+  const payer = getDeploymentKeypair();
+  const mint = new PublicKey(mintAddress);
+  const ata = await getAssociatedTokenAddress(mint, payer.publicKey);
+
+  const tx = new Transaction().add(
+    createBurnInstruction(ata, mint, payer.publicKey, rawAmount)
+  );
+
+  logger.info({ mintAddress, rawAmount: rawAmount.toString() }, "Burning tokens");
+
+  return sendAndConfirmTransaction(connection, tx, [payer], {
+    commitment: "confirmed",
+  });
+}
+
+// ── Transfer ──────────────────────────────────────────────────────────────────
+
+export async function transferSplTokens(
+  mintAddress: string,
+  toAddress: string,
+  rawAmount: bigint
+): Promise<string> {
+  const payer = getDeploymentKeypair();
+  const mint = new PublicKey(mintAddress);
+  const toPubkey = new PublicKey(toAddress);
+
+  const fromAta = await getAssociatedTokenAddress(mint, payer.publicKey);
+  const toAta = await getOrCreateAssociatedTokenAccount(
+    connection,
+    payer,
+    mint,
+    toPubkey
+  );
+
+  const tx = new Transaction().add(
+    createTransferInstruction(
+      fromAta,
+      toAta.address,
+      payer.publicKey,
+      rawAmount
+    )
+  );
+
+  logger.info(
+    { mintAddress, toAddress, rawAmount: rawAmount.toString() },
+    "Transferring tokens"
+  );
+
+  return sendAndConfirmTransaction(connection, tx, [payer], {
+    commitment: "confirmed",
+  });
+}
+
+// ── Revoke authorities ────────────────────────────────────────────────────────
+
+export async function revokeMintAuthority(mintAddress: string): Promise<string> {
+  const payer = getDeploymentKeypair();
+  const mint = new PublicKey(mintAddress);
+
+  const tx = new Transaction().add(
+    createSetAuthorityInstruction(
+      mint,
+      payer.publicKey,
+      AuthorityType.MintTokens,
+      null
+    )
+  );
+
+  logger.info({ mintAddress }, "Revoking mint authority");
+
+  return sendAndConfirmTransaction(connection, tx, [payer], {
+    commitment: "confirmed",
+  });
+}
+
+export async function revokeFreezeAuthority(
+  mintAddress: string
+): Promise<string> {
+  const payer = getDeploymentKeypair();
+  const mint = new PublicKey(mintAddress);
+
+  const tx = new Transaction().add(
+    createSetAuthorityInstruction(
+      mint,
+      payer.publicKey,
+      AuthorityType.FreezeAccount,
+      null
+    )
+  );
+
+  logger.info({ mintAddress }, "Revoking freeze authority");
+
+  return sendAndConfirmTransaction(connection, tx, [payer], {
+    commitment: "confirmed",
+  });
+}
+
+// ── Withdraw SOL ──────────────────────────────────────────────────────────────
 
 export async function withdrawSol(
   toAddress: string,
@@ -60,12 +203,12 @@ export async function withdrawSol(
 
   logger.info({ toAddress, amountSol }, "Withdrawing SOL");
 
-  const signature = await sendAndConfirmTransaction(connection, tx, [payer], {
+  return sendAndConfirmTransaction(connection, tx, [payer], {
     commitment: "confirmed",
   });
-
-  return signature;
 }
+
+// ── Deploy token ──────────────────────────────────────────────────────────────
 
 export interface DeployResult {
   mintAddress: string;
