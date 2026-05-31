@@ -1,0 +1,370 @@
+import { Telegraf, session, Context } from "telegraf";
+import type { SessionData } from "./session";
+import { defaultSession } from "./session";
+import {
+  mainMenuMessage,
+  helpMessage,
+  reviewMessage,
+  successMessage,
+  errorMessage,
+  insufficientFundsMessage,
+  DEPLOYMENT_FEE,
+} from "./messages";
+import {
+  mainMenuKeyboard,
+  yesNoKeyboard,
+  optionalSkipKeyboard,
+  authorityInlineKeyboard,
+} from "./keyboards";
+import {
+  deployToken,
+  getDeploymentWallet,
+  getWalletBalance,
+} from "./solana";
+import { logger } from "../lib/logger";
+
+interface BotContext extends Context {
+  session: SessionData;
+}
+
+const REQUIRED_FIELDS: Array<keyof SessionData["token"]> = [
+  "name",
+  "symbol",
+  "supply",
+  "decimals",
+];
+
+const REQUIRED_PROMPTS: Record<string, string> = {
+  name: "What is your *token name*?\n\nExample: `Solana Gold`",
+  symbol: "What is your *token symbol*?\n\nExample: `SGOLD` (2–10 characters, uppercase)",
+  supply: "What is the *total supply*?\n\nExample: `1000000000` (1 billion)",
+  decimals: "How many *decimals*? (0–9)\n\nDefault is `9`. Send a number or type `skip` for default.",
+};
+
+const OPTIONAL_FIELDS: Array<keyof SessionData["token"]> = [
+  "description",
+  "logoUrl",
+  "website",
+  "telegram",
+  "twitter",
+];
+
+const OPTIONAL_PROMPTS: Record<string, string> = {
+  description: "*Token Description* (optional)\n\nSend a short description or tap *Skip*.",
+  logoUrl: "*Logo URL* (optional)\n\nSend a direct image URL (https://...) or tap *Skip*.",
+  website: "*Website URL* (optional)\n\nSend your website or tap *Skip*.",
+  telegram: "*Telegram Link* (optional)\n\nExample: `https://t.me/yourgroup` or tap *Skip*.",
+  twitter: "*Twitter/X Link* (optional)\n\nExample: `https://x.com/yourhandle` or tap *Skip*.",
+};
+
+export function createBot(token: string): Telegraf<BotContext> {
+  const bot = new Telegraf<BotContext>(token);
+
+  bot.use(session({ defaultSession }));
+
+  // ── Start / Main Menu ──────────────────────────────────────────────────────
+  bot.start(async (ctx) => {
+    ctx.session = defaultSession();
+    await ctx.replyWithMarkdown(mainMenuMessage(), mainMenuKeyboard());
+  });
+
+  bot.command("help", async (ctx) => {
+    await ctx.replyWithMarkdown(helpMessage());
+  });
+
+  bot.hears("Help", async (ctx) => {
+    await ctx.replyWithMarkdown(helpMessage());
+  });
+
+  bot.command("reset", async (ctx) => {
+    ctx.session = defaultSession();
+    await ctx.replyWithMarkdown(
+      "Session cleared. Ready to start fresh.",
+      mainMenuKeyboard()
+    );
+  });
+
+  bot.hears("Reset", async (ctx) => {
+    ctx.session = defaultSession();
+    await ctx.replyWithMarkdown(
+      "Session cleared. Ready to start fresh.",
+      mainMenuKeyboard()
+    );
+  });
+
+  // ── Create Token ───────────────────────────────────────────────────────────
+  bot.command("create", (ctx) => startCreate(ctx));
+  bot.hears("Create Token", (ctx) => startCreate(ctx));
+
+  async function startCreate(ctx: BotContext) {
+    ctx.session = defaultSession();
+    ctx.session.step = "collecting_required";
+    ctx.session.collectingField = "name";
+    await ctx.replyWithMarkdown(
+      "*Create Token*\n\nLet's collect the required details.\n\n" +
+        REQUIRED_PROMPTS["name"]!
+    );
+  }
+
+  // ── Review ─────────────────────────────────────────────────────────────────
+  bot.command("review", (ctx) => showReview(ctx));
+  bot.hears("Review Deployment", (ctx) => showReview(ctx));
+
+  async function showReview(ctx: BotContext) {
+    const t = ctx.session.token;
+    if (!t.name || !t.symbol || !t.supply || t.decimals === undefined) {
+      await ctx.replyWithMarkdown(
+        "Please complete token creation first.\n\nUse /create to begin."
+      );
+      return;
+    }
+    const wallet = getDeploymentWallet();
+    await ctx.replyWithMarkdown(
+      reviewMessage(t, wallet, DEPLOYMENT_FEE),
+      mainMenuKeyboard()
+    );
+  }
+
+  // ── Launch ─────────────────────────────────────────────────────────────────
+  bot.command("launch", (ctx) => initiateLaunch(ctx));
+  bot.hears("Launch Token", (ctx) => initiateLaunch(ctx));
+
+  async function initiateLaunch(ctx: BotContext) {
+    const t = ctx.session.token;
+    if (!t.name || !t.symbol || !t.supply || t.decimals === undefined) {
+      await ctx.replyWithMarkdown(
+        "Token configuration is incomplete.\n\nUse /create to set up your token first."
+      );
+      return;
+    }
+
+    if (ctx.session.step === "deploying") {
+      await ctx.replyWithMarkdown("Deployment is already in progress. Please wait.");
+      return;
+    }
+
+    const wallet = getDeploymentWallet();
+    const balance = await getWalletBalance(wallet);
+
+    if (balance < DEPLOYMENT_FEE + 0.05) {
+      await ctx.replyWithMarkdown(
+        insufficientFundsMessage(balance, DEPLOYMENT_FEE)
+      );
+      return;
+    }
+
+    await ctx.replyWithMarkdown(
+      reviewMessage(t, wallet, DEPLOYMENT_FEE) +
+        "\n\n*Confirm deployment?*",
+      yesNoKeyboard()
+    );
+    ctx.session.step = "review";
+  }
+
+  bot.hears("Yes, Launch", async (ctx) => {
+    if (ctx.session.step !== "review") {
+      await ctx.replyWithMarkdown("Please use /launch to start deployment.");
+      return;
+    }
+
+    ctx.session.step = "deploying";
+    await ctx.replyWithMarkdown(
+      `*Deploying Token*\n\nSigning and broadcasting to Solana Mainnet...\n\nThis may take 30–60 seconds.`
+    );
+
+    try {
+      const result = await deployToken(ctx.session.token, DEPLOYMENT_FEE);
+      ctx.session.step = "done";
+      await ctx.replyWithMarkdown(
+        successMessage(
+          result.mintAddress,
+          result.txSignature,
+          result.solscanUrl,
+          result.timestamp
+        ),
+        mainMenuKeyboard()
+      );
+    } catch (err) {
+      ctx.session.step = "idle";
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, "Token deployment failed");
+      await ctx.replyWithMarkdown(errorMessage(msg), mainMenuKeyboard());
+    }
+  });
+
+  bot.hears("Cancel", async (ctx) => {
+    ctx.session.step = "idle";
+    await ctx.replyWithMarkdown("Deployment cancelled.", mainMenuKeyboard());
+  });
+
+  // ── Optional fields ────────────────────────────────────────────────────────
+  bot.hears("Done with optional fields", async (ctx) => {
+    if (ctx.session.step !== "collecting_optional") return;
+    ctx.session.step = "idle";
+    await showAuthoritySettings(ctx);
+  });
+
+  bot.hears("Skip", async (ctx) => {
+    if (ctx.session.step !== "collecting_optional") return;
+    await advanceOptional(ctx);
+  });
+
+  // ── Authority toggles (inline) ─────────────────────────────────────────────
+  bot.action("toggle_mint", async (ctx) => {
+    ctx.session.token.revokeMint = !ctx.session.token.revokeMint;
+    await ctx.editMessageReplyMarkup(
+      authorityInlineKeyboard(
+        ctx.session.token.revokeMint!,
+        ctx.session.token.revokeFreeze!
+      ).reply_markup
+    );
+    await ctx.answerCbQuery();
+  });
+
+  bot.action("toggle_freeze", async (ctx) => {
+    ctx.session.token.revokeFreeze = !ctx.session.token.revokeFreeze;
+    await ctx.editMessageReplyMarkup(
+      authorityInlineKeyboard(
+        ctx.session.token.revokeMint!,
+        ctx.session.token.revokeFreeze!
+      ).reply_markup
+    );
+    await ctx.answerCbQuery();
+  });
+
+  bot.action("authority_done", async (ctx) => {
+    ctx.session.step = "idle";
+    await ctx.answerCbQuery("Settings saved");
+    const wallet = getDeploymentWallet();
+    await ctx.replyWithMarkdown(
+      reviewMessage(ctx.session.token, wallet, DEPLOYMENT_FEE) +
+        "\n\nUse /launch when ready.",
+      mainMenuKeyboard()
+    );
+  });
+
+  // ── General message handler (step machine) ─────────────────────────────────
+  bot.on("text", async (ctx) => {
+    const text = ctx.message.text.trim();
+
+    if (ctx.session.step === "collecting_required") {
+      await handleRequiredInput(ctx, text);
+      return;
+    }
+
+    if (ctx.session.step === "collecting_optional") {
+      await handleOptionalInput(ctx, text);
+      return;
+    }
+
+    // Fallback
+    await ctx.replyWithMarkdown(mainMenuMessage(), mainMenuKeyboard());
+  });
+
+  return bot;
+}
+
+// ── Step helpers ──────────────────────────────────────────────────────────────
+
+async function handleRequiredInput(ctx: BotContext, text: string) {
+  const field = ctx.session.collectingField as keyof SessionData["token"];
+
+  if (field === "name") {
+    if (text.length < 1 || text.length > 50) {
+      await ctx.replyWithMarkdown("Token name must be 1–50 characters. Try again.");
+      return;
+    }
+    ctx.session.token.name = text;
+  } else if (field === "symbol") {
+    const sym = text.toUpperCase().replace(/\s/g, "");
+    if (sym.length < 2 || sym.length > 10) {
+      await ctx.replyWithMarkdown("Symbol must be 2–10 characters. Try again.");
+      return;
+    }
+    ctx.session.token.symbol = sym;
+  } else if (field === "supply") {
+    const num = Number(text.replace(/[,_]/g, ""));
+    if (isNaN(num) || num <= 0 || num > 1e18) {
+      await ctx.replyWithMarkdown(
+        "Invalid supply. Enter a positive number (e.g. `1000000000`)."
+      );
+      return;
+    }
+    ctx.session.token.supply = num;
+  } else if (field === "decimals") {
+    if (text.toLowerCase() === "skip") {
+      ctx.session.token.decimals = 9;
+    } else {
+      const d = parseInt(text, 10);
+      if (isNaN(d) || d < 0 || d > 9) {
+        await ctx.replyWithMarkdown("Decimals must be 0–9. Try again.");
+        return;
+      }
+      ctx.session.token.decimals = d;
+    }
+  }
+
+  await advanceRequired(ctx);
+}
+
+async function advanceRequired(ctx: BotContext) {
+  const currentIndex = REQUIRED_FIELDS.indexOf(
+    ctx.session.collectingField as keyof SessionData["token"]
+  );
+  const next = REQUIRED_FIELDS[currentIndex + 1];
+
+  if (next) {
+    ctx.session.collectingField = next;
+    await ctx.replyWithMarkdown(REQUIRED_PROMPTS[next]!);
+  } else {
+    // Move to optional
+    ctx.session.step = "collecting_optional";
+    ctx.session.collectingField = OPTIONAL_FIELDS[0];
+    await ctx.replyWithMarkdown(
+      "*Optional Details*\n\nTap *Skip* to skip any field, or *Done with optional fields* to move on.\n\n" +
+        OPTIONAL_PROMPTS[OPTIONAL_FIELDS[0]!]!,
+      optionalSkipKeyboard()
+    );
+  }
+}
+
+async function handleOptionalInput(ctx: BotContext, text: string) {
+  const field = ctx.session.collectingField as keyof SessionData["token"];
+
+  if (field === "logoUrl" || field === "website" || field === "telegram" || field === "twitter") {
+    if (!text.startsWith("http://") && !text.startsWith("https://")) {
+      await ctx.replyWithMarkdown(
+        "Please send a valid URL starting with `https://`, or tap *Skip*."
+      );
+      return;
+    }
+  }
+
+  (ctx.session.token as Record<string, unknown>)[field] = text;
+  await advanceOptional(ctx);
+}
+
+async function advanceOptional(ctx: BotContext) {
+  const currentIndex = OPTIONAL_FIELDS.indexOf(
+    ctx.session.collectingField as keyof SessionData["token"]
+  );
+  const next = OPTIONAL_FIELDS[currentIndex + 1];
+
+  if (next) {
+    ctx.session.collectingField = next;
+    await ctx.replyWithMarkdown(OPTIONAL_PROMPTS[next]!, optionalSkipKeyboard());
+  } else {
+    await showAuthoritySettings(ctx);
+  }
+}
+
+async function showAuthoritySettings(ctx: BotContext) {
+  ctx.session.step = "idle";
+  await ctx.replyWithMarkdown(
+    "*Authority Settings*\n\nConfigure mint and freeze authority.\nRevoking makes the token immutable.",
+    authorityInlineKeyboard(
+      ctx.session.token.revokeMint!,
+      ctx.session.token.revokeFreeze!
+    )
+  );
+}
