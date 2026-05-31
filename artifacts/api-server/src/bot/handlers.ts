@@ -51,7 +51,7 @@ const OPTIONAL_FIELDS: Array<keyof SessionData["token"]> = [
 
 const OPTIONAL_PROMPTS: Record<string, string> = {
   description: "*Token Description* (optional)\n\nSend a short description or tap *Skip*.",
-  logoUrl: "*Logo URL* (optional)\n\nSend a direct image URL (https://...) or tap *Skip*.",
+  logoUrl: "*Token Logo* (optional)\n\nSend an image directly *or* paste a URL (https://...). Tap *Skip* to continue without a logo.",
   website: "*Website URL* (optional)\n\nSend your website or tap *Skip*.",
   telegram: "*Telegram Link* (optional)\n\nExample: `https://t.me/yourgroup` or tap *Skip*.",
   twitter: "*Twitter/X Link* (optional)\n\nExample: `https://x.com/yourhandle` or tap *Skip*.",
@@ -241,6 +241,67 @@ export function createBot(token: string): Telegraf<BotContext> {
         "\n\nUse /launch when ready.",
       mainMenuKeyboard()
     );
+  });
+
+  // ── Photo upload handler ───────────────────────────────────────────────────
+  bot.on("photo", async (ctx) => {
+    if (
+      ctx.session.step !== "collecting_optional" ||
+      ctx.session.collectingField !== "logoUrl"
+    ) {
+      await ctx.replyWithMarkdown(
+        "I can only accept images during the logo step.\n\nUse /create to start token setup."
+      );
+      return;
+    }
+
+    // Pick the highest-resolution version
+    const photos = ctx.message.photo;
+    const best = photos[photos.length - 1]!;
+    try {
+      const fileLink = await ctx.telegram.getFileLink(best.file_id);
+      ctx.session.token.logoUrl = fileLink.href;
+      await ctx.replyWithMarkdown("Logo uploaded.");
+      await advanceOptional(ctx);
+    } catch (err) {
+      logger.error({ err }, "Failed to get file link for photo");
+      await ctx.replyWithMarkdown(
+        "Could not process the image. Please try again or paste a URL instead."
+      );
+    }
+  });
+
+  // ── Document upload handler (images sent as files) ─────────────────────────
+  bot.on("document", async (ctx) => {
+    if (
+      ctx.session.step !== "collecting_optional" ||
+      ctx.session.collectingField !== "logoUrl"
+    ) {
+      await ctx.replyWithMarkdown(
+        "I can only accept images during the logo step.\n\nUse /create to start token setup."
+      );
+      return;
+    }
+
+    const doc = ctx.message.document;
+    if (!doc.mime_type?.startsWith("image/")) {
+      await ctx.replyWithMarkdown(
+        "Please send an image file (PNG, JPG, etc.) or a URL."
+      );
+      return;
+    }
+
+    try {
+      const fileLink = await ctx.telegram.getFileLink(doc.file_id);
+      ctx.session.token.logoUrl = fileLink.href;
+      await ctx.replyWithMarkdown("Logo uploaded.");
+      await advanceOptional(ctx);
+    } catch (err) {
+      logger.error({ err }, "Failed to get file link for document");
+      await ctx.replyWithMarkdown(
+        "Could not process the image. Please try again or paste a URL instead."
+      );
+    }
   });
 
   // ── General message handler (step machine) ─────────────────────────────────
