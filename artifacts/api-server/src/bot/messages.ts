@@ -17,6 +17,17 @@ export function mainMenuMessage(): string {
   );
 }
 
+export function generatedWalletMessage(address: string, privateKey: string): string {
+  return (
+    `*New Wallet Generated*\n\n` +
+    `*Address*\n\`${address}\`\n\n` +
+    `*Private Key*\n\`${privateKey}\`\n\n` +
+    `*Network*\nSolana Mainnet\n\n` +
+    `⚠️ *Save this private key now.* It will not be shown again.\n` +
+    `Never share it with anyone.`
+  );
+}
+
 export function walletMessage(
   address: string,
   balance: number,
