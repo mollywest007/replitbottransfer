@@ -222,6 +222,20 @@ export function reviewMessage(
   return lines.join("\n");
 }
 
+export function launchpadSelectMessage(tokenName: string, tokenSymbol: string): string {
+  return (
+    `*Choose Your Launchpad*\n\n` +
+    `Token: *${tokenName}* (${tokenSymbol})\n\n` +
+    `🚀 *Standard SPL Token*\n` +
+    `Raw SPL token on Solana. Requires ≥5 SOL. You control the supply.\n\n` +
+    `🟣 *Pump.fun — Bonding Curve*\n` +
+    `Instant listing on pump.fun with a bonding curve market. Requires ~0.05 SOL. Token trades immediately.\n\n` +
+    `🔵 *Raydium — DEX Pool*\n` +
+    `Deploys a standard SPL token and gives you a direct link to create a Raydium liquidity pool. Requires ≥5 SOL.\n\n` +
+    `Select a launchpad below:`
+  );
+}
+
 export function successMessage(
   mintAddress: string,
   txSignature: string,
@@ -229,15 +243,53 @@ export function successMessage(
   timestamp: string
 ): string {
   const shortTx = `${txSignature.slice(0, 8)}...${txSignature.slice(-8)}`;
-  const shortMint = `${mintAddress.slice(0, 8)}...${mintAddress.slice(-8)}`;
   return (
-    `*Token Deployed Successfully*\n\n` +
+    `*Token Deployed Successfully* 🚀\n\n` +
     `*Mint Address*\n\`${mintAddress}\`\n\n` +
-    `*Transaction*\n\`${shortMint}\` — \`${shortTx}\`\n\n` +
+    `*Transaction*\n\`${shortTx}\`\n\n` +
     `*Solscan*\n${solscanUrl}\n\n` +
     `*Status:* Confirmed\n` +
     `*Time:* ${new Date(timestamp).toUTCString()}\n\n` +
     `Tap *Token Panel* to manage your token.`
+  );
+}
+
+export function pumpfunSuccessMessage(
+  mintAddress: string,
+  txSignature: string,
+  viewUrl: string,
+  timestamp: string
+): string {
+  const shortTx = `${txSignature.slice(0, 8)}...${txSignature.slice(-8)}`;
+  return (
+    `*Token Live on Pump.fun* 🟣\n\n` +
+    `*Mint Address*\n\`${mintAddress}\`\n\n` +
+    `*Transaction*\n\`${shortTx}\`\n\n` +
+    `*Pump.fun Page*\n${viewUrl}\n\n` +
+    `*Status:* Confirmed\n` +
+    `*Time:* ${new Date(timestamp).toUTCString()}\n\n` +
+    `Your token is now live on the pump.fun bonding curve and can be bought immediately. Tap *Token Panel* to manage it.`
+  );
+}
+
+export function raydiumSuccessMessage(
+  mintAddress: string,
+  txSignature: string,
+  solscanUrl: string,
+  timestamp: string
+): string {
+  const shortTx = `${txSignature.slice(0, 8)}...${txSignature.slice(-8)}`;
+  const raydiumUrl = `https://raydium.io/liquidity/create-pool/?token=${mintAddress}`;
+  return (
+    `*Token Deployed — Ready for Raydium* 🔵\n\n` +
+    `*Mint Address*\n\`${mintAddress}\`\n\n` +
+    `*Transaction*\n\`${shortTx}\`\n\n` +
+    `*Solscan*\n${solscanUrl}\n\n` +
+    `*Status:* Confirmed\n` +
+    `*Time:* ${new Date(timestamp).toUTCString()}\n\n` +
+    `*Next step — Create Raydium Pool:*\n` +
+    `${raydiumUrl}\n\n` +
+    `You'll need to provide initial SOL + token liquidity on Raydium to start trading. Tap *Token Panel* to manage your token.`
   );
 }
 

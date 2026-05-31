@@ -6,6 +6,9 @@ import {
   helpMessage,
   reviewMessage,
   successMessage,
+  pumpfunSuccessMessage,
+  raydiumSuccessMessage,
+  launchpadSelectMessage,
   errorMessage,
   insufficientFundsMessage,
   walletMessage,
@@ -22,7 +25,7 @@ import {
 } from "./messages";
 import {
   mainMenuKeyboard,
-  yesNoKeyboard,
+  launchpadKeyboard,
   backKeyboard,
   optionalSkipKeyboard,
   withdrawInputKeyboard,
@@ -46,6 +49,7 @@ import {
   revokeMintAuthority,
   revokeFreezeAuthority,
 } from "./solana";
+import { deployPumpFun, PUMPFUN_MIN_SOL } from "./launchpad";
 import { logger } from "../lib/logger";
 
 interface BotContext extends Context {
@@ -355,36 +359,35 @@ export function createBot(token: string): Telegraf<BotContext> {
       return;
     }
 
+    ctx.session.step = "review";
+
+    // Show launchpad selection — balance check happens on selection based on chosen platform
+    await ctx.replyWithMarkdown(
+      launchpadSelectMessage(t.name!, t.symbol!),
+      launchpadKeyboard()
+    );
+  }
+
+  // ── Launchpad: Standard SPL ────────────────────────────────────────────────
+  bot.action("launch_standard", async (ctx) => {
+    await ctx.answerCbQuery("Standard SPL selected");
+    if (ctx.session.step !== "review") return;
+
     const wallet = getDeploymentWallet();
     const balance = await getWalletBalance(wallet);
-
     if (balance < DEPLOYMENT_FEE + 0.05) {
       await ctx.replyWithMarkdown(insufficientFundsMessage(balance, DEPLOYMENT_FEE));
       return;
     }
 
-    await ctx.replyWithMarkdown(
-      reviewMessage(t, wallet, DEPLOYMENT_FEE) + "\n\n*Confirm deployment?*",
-      yesNoKeyboard()
-    );
-    ctx.session.step = "review";
-  }
-
-  bot.hears("Yes, Launch", async (ctx) => {
-    if (ctx.session.step !== "review") {
-      await ctx.replyWithMarkdown("Please use /launch to start deployment.");
-      return;
-    }
-
     ctx.session.step = "deploying";
+    ctx.session.launchpad = "standard";
     await ctx.replyWithMarkdown(
-      `*Deploying Token*\n\nSigning and broadcasting to Solana Mainnet...\n\nThis may take 30–60 seconds.`
+      `*Deploying Standard SPL Token* 🚀\n\nSigning and broadcasting to Solana Mainnet...\n\nThis may take 30–60 seconds.`
     );
 
     try {
       const result = await deployToken(ctx.session.token, DEPLOYMENT_FEE);
-
-      // Store deployed token info in session for the control panel
       ctx.session.lastMint = result.mintAddress;
       ctx.session.lastSymbol = ctx.session.token.symbol;
       ctx.session.lastDecimals = ctx.session.token.decimals ?? 9;
@@ -395,15 +398,103 @@ export function createBot(token: string): Telegraf<BotContext> {
         successMessage(result.mintAddress, result.txSignature, result.solscanUrl, result.timestamp),
         mainMenuKeyboard()
       );
-
-      // Auto-show the control panel after a moment
       await showPanel(ctx, result.mintAddress);
     } catch (err) {
       ctx.session.step = "idle";
       const msg = err instanceof Error ? err.message : String(err);
-      logger.error({ err }, "Token deployment failed");
+      logger.error({ err }, "Standard SPL deployment failed");
       await ctx.replyWithMarkdown(errorMessage(msg), mainMenuKeyboard());
     }
+  });
+
+  // ── Launchpad: Pump.fun ────────────────────────────────────────────────────
+  bot.action("launch_pumpfun", async (ctx) => {
+    await ctx.answerCbQuery("Pump.fun selected");
+    if (ctx.session.step !== "review") return;
+
+    const wallet = getDeploymentWallet();
+    const balance = await getWalletBalance(wallet);
+    if (balance < PUMPFUN_MIN_SOL) {
+      await ctx.replyWithMarkdown(
+        `*Insufficient Funds for Pump.fun*\n\n` +
+          `*Current balance:* \`${balance.toFixed(4)} SOL\`\n` +
+          `*Required minimum:* \`${PUMPFUN_MIN_SOL} SOL\`\n\n` +
+          `Fund the wallet and try again.`
+      );
+      return;
+    }
+
+    ctx.session.step = "deploying";
+    ctx.session.launchpad = "pumpfun";
+    await ctx.replyWithMarkdown(
+      `*Launching on Pump.fun* 🟣\n\nUploading metadata and creating bonding curve...\n\nThis may take 30–60 seconds.`
+    );
+
+    try {
+      const result = await deployPumpFun(ctx.session.token);
+      ctx.session.lastMint = result.mintAddress;
+      ctx.session.lastSymbol = ctx.session.token.symbol;
+      ctx.session.lastDecimals = 6; // Pump.fun always uses 6 decimals
+      ctx.session.step = "done";
+      ctx.session.history = [];
+
+      await ctx.replyWithMarkdown(
+        pumpfunSuccessMessage(result.mintAddress, result.txSignature, result.viewUrl, result.timestamp),
+        mainMenuKeyboard()
+      );
+      await showPanel(ctx, result.mintAddress);
+    } catch (err) {
+      ctx.session.step = "idle";
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, "Pump.fun deployment failed");
+      await ctx.replyWithMarkdown(errorMessage(msg), mainMenuKeyboard());
+    }
+  });
+
+  // ── Launchpad: Raydium ─────────────────────────────────────────────────────
+  bot.action("launch_raydium", async (ctx) => {
+    await ctx.answerCbQuery("Raydium selected");
+    if (ctx.session.step !== "review") return;
+
+    const wallet = getDeploymentWallet();
+    const balance = await getWalletBalance(wallet);
+    if (balance < DEPLOYMENT_FEE + 0.05) {
+      await ctx.replyWithMarkdown(insufficientFundsMessage(balance, DEPLOYMENT_FEE));
+      return;
+    }
+
+    ctx.session.step = "deploying";
+    ctx.session.launchpad = "raydium";
+    await ctx.replyWithMarkdown(
+      `*Deploying SPL Token for Raydium* 🔵\n\nSigning and broadcasting to Solana Mainnet...\n\nThis may take 30–60 seconds.`
+    );
+
+    try {
+      const result = await deployToken(ctx.session.token, DEPLOYMENT_FEE);
+      ctx.session.lastMint = result.mintAddress;
+      ctx.session.lastSymbol = ctx.session.token.symbol;
+      ctx.session.lastDecimals = ctx.session.token.decimals ?? 9;
+      ctx.session.step = "done";
+      ctx.session.history = [];
+
+      await ctx.replyWithMarkdown(
+        raydiumSuccessMessage(result.mintAddress, result.txSignature, result.solscanUrl, result.timestamp),
+        mainMenuKeyboard()
+      );
+      await showPanel(ctx, result.mintAddress);
+    } catch (err) {
+      ctx.session.step = "idle";
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, "Raydium SPL deployment failed");
+      await ctx.replyWithMarkdown(errorMessage(msg), mainMenuKeyboard());
+    }
+  });
+
+  // ── Launchpad: Cancel ──────────────────────────────────────────────────────
+  bot.action("launch_cancel", async (ctx) => {
+    await ctx.answerCbQuery("Cancelled");
+    ctx.session.step = "idle";
+    await ctx.replyWithMarkdown("Launch cancelled.", mainMenuKeyboard());
   });
 
   bot.hears("Cancel", async (ctx) => {

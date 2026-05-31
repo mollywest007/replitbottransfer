@@ -41,12 +41,15 @@ export interface PanelTransferDraft {
   rawAmount?: bigint;
 }
 
+export type Launchpad = "standard" | "pumpfun" | "raydium";
+
 export interface SessionData {
   step: DeploymentStep;
   collectingField?: string;
   token: TokenConfig;
   withdraw: WithdrawDraft;
   panelTransfer: PanelTransferDraft;
+  launchpad?: Launchpad;
   lastMint?: string;
   lastSymbol?: string;
   lastDecimals?: number;

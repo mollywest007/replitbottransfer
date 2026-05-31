@@ -1,5 +1,14 @@
 import { Markup } from "telegraf";
 
+export function launchpadKeyboard() {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback("🚀 Standard SPL Token", "launch_standard")],
+    [Markup.button.callback("🟣 Pump.fun — Bonding Curve", "launch_pumpfun")],
+    [Markup.button.callback("🔵 Raydium — DEX Pool", "launch_raydium")],
+    [Markup.button.callback("❌ Cancel", "launch_cancel")],
+  ]);
+}
+
 export function walletRefreshKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback("🔄 Refresh Balance", "wallet_refresh")],
