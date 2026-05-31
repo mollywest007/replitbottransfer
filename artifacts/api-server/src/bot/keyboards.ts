@@ -3,9 +3,9 @@ import { Markup } from "telegraf";
 export function mainMenuKeyboard() {
   return Markup.keyboard([
     ["Create Token", "Wallet Info"],
-    ["Withdraw SOL", "Generate Wallet"],
-    ["Review Deployment", "Launch Token"],
-    ["Help", "Reset"],
+    ["Withdraw SOL", "Review Deployment"],
+    ["Launch Token", "Help"],
+    ["Reset"],
   ])
     .resize()
     .oneTime(false);

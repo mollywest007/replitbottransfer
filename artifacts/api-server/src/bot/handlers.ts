@@ -9,7 +9,6 @@ import {
   errorMessage,
   insufficientFundsMessage,
   walletMessage,
-  generatedWalletMessage,
   withdrawReviewMessage,
   withdrawSuccessMessage,
   DEPLOYMENT_FEE,
@@ -28,7 +27,6 @@ import {
   getDeploymentWallet,
   getWalletBalance,
   withdrawSol,
-  generateNewWallet,
 } from "./solana";
 import { logger } from "../lib/logger";
 
@@ -194,18 +192,6 @@ export function createBot(token: string): Telegraf<BotContext> {
         mainMenuKeyboard()
       );
     }
-  }
-
-  // ── Generate Wallet ────────────────────────────────────────────────────────
-  bot.command("genwallett", (ctx) => genWallet(ctx));
-  bot.hears("Generate Wallet", (ctx) => genWallet(ctx));
-
-  async function genWallet(ctx: BotContext) {
-    const wallet = generateNewWallet();
-    await ctx.replyWithMarkdown(
-      generatedWalletMessage(wallet.address, wallet.privateKey),
-      mainMenuKeyboard()
-    );
   }
 
   // ── Withdraw SOL ───────────────────────────────────────────────────────────

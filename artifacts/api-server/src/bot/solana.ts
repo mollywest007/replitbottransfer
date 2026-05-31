@@ -41,17 +41,6 @@ export async function getWalletBalance(address: string): Promise<number> {
   return lamports / LAMPORTS_PER_SOL;
 }
 
-export interface GeneratedWallet {
-  address: string;
-  privateKey: string;
-}
-
-export function generateNewWallet(): GeneratedWallet {
-  const keypair = Keypair.generate();
-  const address = keypair.publicKey.toBase58();
-  const privateKey = bs58.encode(keypair.secretKey);
-  return { address, privateKey };
-}
 
 export async function withdrawSol(
   toAddress: string,
