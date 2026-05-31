@@ -17,16 +17,35 @@ export function yesNoKeyboard() {
     .oneTime(true);
 }
 
-export function withdrawConfirmKeyboard() {
-  return Markup.keyboard([["Confirm Withdrawal", "Cancel"]])
-    .resize()
-    .oneTime(true);
-}
-
-export function optionalSkipKeyboard() {
-  return Markup.keyboard([["Skip", "Done with optional fields"]])
+/** Shown during required field collection (all steps except the very first). */
+export function backKeyboard() {
+  return Markup.keyboard([["◀ Back"]])
     .resize()
     .oneTime(false);
+}
+
+/** Shown during optional field collection: skip, back, or finish. */
+export function optionalSkipKeyboard() {
+  return Markup.keyboard([
+    ["Skip", "◀ Back"],
+    ["Done with optional fields"],
+  ])
+    .resize()
+    .oneTime(false);
+}
+
+/** Shown while entering a withdrawal address or amount. */
+export function withdrawInputKeyboard() {
+  return Markup.keyboard([["◀ Back", "Cancel"]])
+    .resize()
+    .oneTime(false);
+}
+
+/** Shown on the withdrawal review/confirm screen. */
+export function withdrawConfirmKeyboard() {
+  return Markup.keyboard([["Confirm Withdrawal"], ["◀ Back", "Cancel"]])
+    .resize()
+    .oneTime(true);
 }
 
 export function authorityInlineKeyboard(

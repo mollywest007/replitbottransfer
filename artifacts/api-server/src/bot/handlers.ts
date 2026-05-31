@@ -1,5 +1,5 @@
 import { Telegraf, session, Context } from "telegraf";
-import type { SessionData } from "./session";
+import type { SessionData, HistoryEntry } from "./session";
 import { defaultSession } from "./session";
 import {
   mainMenuMessage,
@@ -16,8 +16,10 @@ import {
 import {
   mainMenuKeyboard,
   yesNoKeyboard,
-  withdrawConfirmKeyboard,
+  backKeyboard,
   optionalSkipKeyboard,
+  withdrawInputKeyboard,
+  withdrawConfirmKeyboard,
   authorityInlineKeyboard,
 } from "./keyboards";
 import {
@@ -62,10 +64,77 @@ const OPTIONAL_PROMPTS: Record<string, string> = {
   twitter: "*Twitter/X Link* (optional)\n\nExample: `https://x.com/yourhandle` or tap *Skip*.",
 };
 
+// ── History helpers ────────────────────────────────────────────────────────────
+
+function pushHistory(ctx: BotContext) {
+  const entry: HistoryEntry = {
+    step: ctx.session.step,
+    collectingField: ctx.session.collectingField,
+  };
+  ctx.session.history.push(entry);
+}
+
 export function createBot(token: string): Telegraf<BotContext> {
   const bot = new Telegraf<BotContext>(token);
 
   bot.use(session({ defaultSession }));
+
+  // ── Back button ─────────────────────────────────────────────────────────────
+  bot.hears("◀ Back", async (ctx) => {
+    const entry = ctx.session.history.pop();
+    if (!entry) {
+      await ctx.replyWithMarkdown(
+        "You're at the beginning.",
+        mainMenuKeyboard()
+      );
+      return;
+    }
+
+    ctx.session.step = entry.step;
+    ctx.session.collectingField = entry.collectingField;
+
+    // Re-show the appropriate prompt for where they're going back to
+    if (entry.step === "collecting_required" && entry.collectingField) {
+      const isFirst = entry.collectingField === "name";
+      const prompt = REQUIRED_PROMPTS[entry.collectingField]!;
+      await ctx.replyWithMarkdown(
+        prompt,
+        isFirst ? undefined : backKeyboard()
+      );
+    } else if (entry.step === "collecting_optional" && entry.collectingField) {
+      const isFirst = entry.collectingField === OPTIONAL_FIELDS[0];
+      const prompt = OPTIONAL_PROMPTS[entry.collectingField]!;
+      if (isFirst) {
+        await ctx.replyWithMarkdown(
+          "*Optional Details*\n\nTap *Skip* to skip any field, or *Done with optional fields* to move on.\n\n" + prompt,
+          optionalSkipKeyboard()
+        );
+      } else {
+        await ctx.replyWithMarkdown(prompt, optionalSkipKeyboard());
+      }
+    } else if (entry.step === "withdraw_address") {
+      await ctx.replyWithMarkdown(
+        "*Withdraw SOL*\n\nSend the recipient Solana wallet address.",
+        withdrawInputKeyboard()
+      );
+    } else if (entry.step === "withdraw_amount") {
+      await ctx.replyWithMarkdown(
+        `*How much SOL to withdraw?*\n\nEnter an amount (e.g. \`1.5\`).`,
+        withdrawInputKeyboard()
+      );
+    } else if (entry.step === "withdraw_confirm") {
+      const { toAddress, amount } = ctx.session.withdraw;
+      if (toAddress && amount) {
+        const balance = await getWalletBalance(getDeploymentWallet());
+        await ctx.replyWithMarkdown(
+          withdrawReviewMessage(toAddress, amount, balance),
+          withdrawConfirmKeyboard()
+        );
+      }
+    } else {
+      await ctx.replyWithMarkdown(mainMenuMessage(), mainMenuKeyboard());
+    }
+  });
 
   // ── Start / Main Menu ──────────────────────────────────────────────────────
   bot.start(async (ctx) => {
@@ -132,8 +201,10 @@ export function createBot(token: string): Telegraf<BotContext> {
   async function startWithdraw(ctx: BotContext) {
     ctx.session.step = "withdraw_address";
     ctx.session.withdraw = {};
+    ctx.session.history = [];
     await ctx.replyWithMarkdown(
-      `*Withdraw SOL*\n\nSend the recipient Solana wallet address.`
+      `*Withdraw SOL*\n\nSend the recipient Solana wallet address.`,
+      withdrawInputKeyboard()
     );
   }
 
@@ -150,6 +221,7 @@ export function createBot(token: string): Telegraf<BotContext> {
     }
 
     ctx.session.step = "idle";
+    ctx.session.history = [];
     await ctx.replyWithMarkdown(`Sending \`${amount} SOL\`...`);
 
     try {
@@ -251,6 +323,7 @@ export function createBot(token: string): Telegraf<BotContext> {
     try {
       const result = await deployToken(ctx.session.token, DEPLOYMENT_FEE);
       ctx.session.step = "done";
+      ctx.session.history = [];
       await ctx.replyWithMarkdown(
         successMessage(
           result.mintAddress,
@@ -270,18 +343,21 @@ export function createBot(token: string): Telegraf<BotContext> {
 
   bot.hears("Cancel", async (ctx) => {
     ctx.session.step = "idle";
-    await ctx.replyWithMarkdown("Deployment cancelled.", mainMenuKeyboard());
+    ctx.session.history = [];
+    await ctx.replyWithMarkdown("Cancelled.", mainMenuKeyboard());
   });
 
   // ── Optional fields ────────────────────────────────────────────────────────
   bot.hears("Done with optional fields", async (ctx) => {
     if (ctx.session.step !== "collecting_optional") return;
+    pushHistory(ctx);
     ctx.session.step = "idle";
     await showAuthoritySettings(ctx);
   });
 
   bot.hears("Skip", async (ctx) => {
     if (ctx.session.step !== "collecting_optional") return;
+    pushHistory(ctx);
     await advanceOptional(ctx);
   });
 
@@ -310,6 +386,7 @@ export function createBot(token: string): Telegraf<BotContext> {
 
   bot.action("authority_done", async (ctx) => {
     ctx.session.step = "idle";
+    ctx.session.history = [];
     await ctx.answerCbQuery("Settings saved");
     const wallet = getDeploymentWallet();
     await ctx.replyWithMarkdown(
@@ -331,13 +408,13 @@ export function createBot(token: string): Telegraf<BotContext> {
       return;
     }
 
-    // Pick the highest-resolution version
     const photos = ctx.message.photo;
     const best = photos[photos.length - 1]!;
     try {
       const fileLink = await ctx.telegram.getFileLink(best.file_id);
       ctx.session.token.logoUrl = fileLink.href;
       await ctx.replyWithMarkdown("Logo uploaded.");
+      pushHistory(ctx);
       await advanceOptional(ctx);
     } catch (err) {
       logger.error({ err }, "Failed to get file link for photo");
@@ -371,6 +448,7 @@ export function createBot(token: string): Telegraf<BotContext> {
       const fileLink = await ctx.telegram.getFileLink(doc.file_id);
       ctx.session.token.logoUrl = fileLink.href;
       await ctx.replyWithMarkdown("Logo uploaded.");
+      pushHistory(ctx);
       await advanceOptional(ctx);
     } catch (err) {
       logger.error({ err }, "Failed to get file link for document");
@@ -451,6 +529,7 @@ async function handleRequiredInput(ctx: BotContext, text: string) {
     }
   }
 
+  pushHistory(ctx);
   await advanceRequired(ctx);
 }
 
@@ -462,7 +541,7 @@ async function advanceRequired(ctx: BotContext) {
 
   if (next) {
     ctx.session.collectingField = next;
-    await ctx.replyWithMarkdown(REQUIRED_PROMPTS[next]!);
+    await ctx.replyWithMarkdown(REQUIRED_PROMPTS[next]!, backKeyboard());
   } else {
     // Move to optional
     ctx.session.step = "collecting_optional";
@@ -488,6 +567,7 @@ async function handleOptionalInput(ctx: BotContext, text: string) {
   }
 
   (ctx.session.token as Record<string, unknown>)[field] = text;
+  pushHistory(ctx);
   await advanceOptional(ctx);
 }
 
@@ -529,10 +609,12 @@ async function handleWithdrawAddress(ctx: BotContext, text: string) {
     );
     return;
   }
+  pushHistory(ctx);
   ctx.session.withdraw.toAddress = text;
   ctx.session.step = "withdraw_amount";
   await ctx.replyWithMarkdown(
-    `*How much SOL to withdraw?*\n\nEnter an amount (e.g. \`1.5\`).`
+    `*How much SOL to withdraw?*\n\nEnter an amount (e.g. \`1.5\`).`,
+    withdrawInputKeyboard()
   );
 }
 
@@ -556,7 +638,6 @@ async function handleWithdrawAmount(ctx: BotContext, text: string) {
     return;
   }
 
-  // Keep a small reserve for network fees
   if (amount + 0.01 > balance) {
     await ctx.replyWithMarkdown(
       `*Insufficient balance.*\n\nAvailable: \`${balance.toFixed(4)} SOL\`\nRequested: \`${amount} SOL\`\n\nReduce the amount and try again.`
@@ -564,6 +645,7 @@ async function handleWithdrawAmount(ctx: BotContext, text: string) {
     return;
   }
 
+  pushHistory(ctx);
   ctx.session.withdraw.amount = amount;
   ctx.session.step = "withdraw_confirm";
 

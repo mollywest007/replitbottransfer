@@ -9,6 +9,11 @@ export type DeploymentStep =
   | "withdraw_amount"
   | "withdraw_confirm";
 
+export interface HistoryEntry {
+  step: DeploymentStep;
+  collectingField?: string;
+}
+
 export interface TokenConfig {
   name?: string;
   symbol?: string;
@@ -33,6 +38,7 @@ export interface SessionData {
   collectingField?: string;
   token: TokenConfig;
   withdraw: WithdrawDraft;
+  history: HistoryEntry[];
   deploymentFee?: number;
   lastMessageId?: number;
 }
@@ -46,5 +52,6 @@ export function defaultSession(): SessionData {
       revokeFreeze: false,
     },
     withdraw: {},
+    history: [],
   };
 }
