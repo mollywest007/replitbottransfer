@@ -8,6 +8,7 @@ import {
   successMessage,
   errorMessage,
   insufficientFundsMessage,
+  walletMessage,
   DEPLOYMENT_FEE,
 } from "./messages";
 import {
@@ -91,6 +92,34 @@ export function createBot(token: string): Telegraf<BotContext> {
       mainMenuKeyboard()
     );
   });
+
+  // ── Wallet Info ────────────────────────────────────────────────────────────
+  bot.command("wallet", (ctx) => showWallet(ctx));
+  bot.hears("Wallet Info", (ctx) => showWallet(ctx));
+
+  async function showWallet(ctx: BotContext) {
+    const address = getDeploymentWallet();
+    const keyConfigured = !!process.env["PRIVATE_KEY"];
+    if (!address) {
+      await ctx.replyWithMarkdown(
+        "*Wallet not configured.*\n\nThe `WALLET_ADDRESS` environment variable is missing."
+      );
+      return;
+    }
+    try {
+      const balance = await getWalletBalance(address);
+      await ctx.replyWithMarkdown(
+        walletMessage(address, balance, keyConfigured),
+        mainMenuKeyboard()
+      );
+    } catch {
+      await ctx.replyWithMarkdown(
+        walletMessage(address, 0, keyConfigured) +
+          "\n\n_Could not fetch live balance — RPC may be unavailable._",
+        mainMenuKeyboard()
+      );
+    }
+  }
 
   // ── Create Token ───────────────────────────────────────────────────────────
   bot.command("create", (ctx) => startCreate(ctx));

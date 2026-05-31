@@ -8,10 +8,29 @@ export function mainMenuMessage(): string {
     `Deploy tokens on Solana in minutes.\n\n` +
     `*Commands*\n` +
     `/create — Start token creation\n` +
+    `/wallet — Deployment wallet info\n` +
     `/review — Review deployment details\n` +
     `/launch — Deploy your token\n` +
     `/reset — Start over\n` +
     `/help — Show help`
+  );
+}
+
+export function walletMessage(
+  address: string,
+  balance: number,
+  keyConfigured: boolean
+): string {
+  const shortAddr = `${address.slice(0, 6)}...${address.slice(-6)}`;
+  const explorerUrl = `https://solscan.io/account/${address}`;
+  return (
+    `*Deployment Wallet*\n\n` +
+    `*Address*\n\`${address}\`\n\n` +
+    `*Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
+    `*Private Key*\n${keyConfigured ? "`Configured ✓`" : "`Not configured ✗`"}\n\n` +
+    `*Network*\nSolana Mainnet\n\n` +
+    `*Explorer*\n${explorerUrl}\n\n` +
+    `_This is a fixed deployment wallet. It cannot be changed._`
   );
 }
 
