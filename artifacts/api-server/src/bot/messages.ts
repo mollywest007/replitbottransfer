@@ -23,16 +23,11 @@ export function walletMessage(
   balance: number,
   keyConfigured: boolean
 ): string {
-  const hasEnough = balance >= DEPLOYMENT_FEE;
-  const statusLine = hasEnough
-    ? `✅ Ready to launch`
-    : `⚠️ Need \`${(DEPLOYMENT_FEE - balance).toFixed(4)} SOL\` more to launch`;
-
   return (
     `*Deployment Wallet*\n\n` +
     `*Address*\n\`${address}\`\n\n` +
-    `*Balance*\n\`${balance.toFixed(4)} SOL\` — ${statusLine}\n\n` +
-    `*Minimum Required*\n\`${DEPLOYMENT_FEE} SOL\` _(covers launch of a small token)_\n\n` +
+    `*Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
+    `*Minimum Required*\n\`${DEPLOYMENT_FEE} SOL\`\n\n` +
     `*Private Key*\n${keyConfigured ? "`Configured ✓`" : "`Not configured ✗`"}\n\n` +
     `*Network*\nSolana Mainnet\n\n` +
     `_This is a fixed deployment wallet. It cannot be changed._`
