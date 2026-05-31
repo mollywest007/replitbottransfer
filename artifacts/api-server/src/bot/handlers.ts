@@ -32,7 +32,9 @@ import {
   burnConfirmKeyboard,
   revokeConfirmKeyboard,
   panelTransferConfirmKeyboard,
+  walletRefreshKeyboard,
 } from "./keyboards";
+import { depositMonitor } from "./monitor";
 import {
   deployToken,
   getDeploymentWallet,
@@ -216,17 +218,49 @@ export function createBot(token: string): Telegraf<BotContext> {
       );
       return;
     }
+
+    // Subscribe user to deposit notifications
+    if (ctx.from?.id) {
+      depositMonitor.subscribe(ctx.from.id);
+    }
+
     try {
       const balance = await getWalletBalance(address);
-      await ctx.replyWithMarkdown(walletMessage(address, balance, keyConfigured), mainMenuKeyboard());
+      await ctx.replyWithMarkdown(
+        walletMessage(address, balance, keyConfigured),
+        walletRefreshKeyboard()
+      );
     } catch {
       await ctx.replyWithMarkdown(
         walletMessage(address, 0, keyConfigured) +
           "\n\n_Could not fetch live balance — RPC may be unavailable._",
-        mainMenuKeyboard()
+        walletRefreshKeyboard()
       );
     }
   }
+
+  // ── Wallet refresh (inline button) ────────────────────────────────────────
+  bot.action("wallet_refresh", async (ctx) => {
+    await ctx.answerCbQuery("Refreshing...");
+    const address = getDeploymentWallet();
+    const keyConfigured = !!process.env["PRIVATE_KEY"];
+    if (!address) {
+      await ctx.answerCbQuery("Wallet not configured");
+      return;
+    }
+    try {
+      const balance = await getWalletBalance(address);
+      await ctx.editMessageText(
+        walletMessage(address, balance, keyConfigured),
+        {
+          parse_mode: "Markdown",
+          reply_markup: walletRefreshKeyboard().reply_markup,
+        }
+      );
+    } catch {
+      await ctx.answerCbQuery("Could not fetch balance — try again");
+    }
+  });
 
   // ── Withdraw SOL ───────────────────────────────────────────────────────────
   bot.command("withdraw", (ctx) => startWithdraw(ctx));

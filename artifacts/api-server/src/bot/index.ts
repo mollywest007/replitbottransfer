@@ -1,4 +1,5 @@
 import { createBot } from "./handlers";
+import { depositMonitor } from "./monitor";
 import { logger } from "../lib/logger";
 
 export function startBot() {
@@ -18,11 +19,20 @@ export function startBot() {
     .launch()
     .then(() => {
       logger.info("Telegram bot started (long polling)");
+      // Start deposit monitor after bot is up
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      depositMonitor.start(bot as any);
     })
     .catch((err) => {
       logger.error({ err }, "Failed to launch Telegram bot");
     });
 
-  process.once("SIGINT", () => bot.stop("SIGINT"));
-  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+  process.once("SIGINT", () => {
+    depositMonitor.stop();
+    bot.stop("SIGINT");
+  });
+  process.once("SIGTERM", () => {
+    depositMonitor.stop();
+    bot.stop("SIGTERM");
+  });
 }

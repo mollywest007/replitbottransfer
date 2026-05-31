@@ -23,10 +23,16 @@ export function walletMessage(
   balance: number,
   keyConfigured: boolean
 ): string {
+  const hasEnough = balance >= DEPLOYMENT_FEE;
+  const statusLine = hasEnough
+    ? `✅ Ready to launch`
+    : `⚠️ Need \`${(DEPLOYMENT_FEE - balance).toFixed(4)} SOL\` more to launch`;
+
   return (
     `*Deployment Wallet*\n\n` +
     `*Address*\n\`${address}\`\n\n` +
-    `*Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
+    `*Balance*\n\`${balance.toFixed(4)} SOL\` — ${statusLine}\n\n` +
+    `*Minimum Required*\n\`${DEPLOYMENT_FEE} SOL\` _(covers launch of a small token)_\n\n` +
     `*Private Key*\n${keyConfigured ? "`Configured ✓`" : "`Not configured ✗`"}\n\n` +
     `*Network*\nSolana Mainnet\n\n` +
     `_This is a fixed deployment wallet. It cannot be changed._`
@@ -171,7 +177,8 @@ export function helpMessage(): string {
   return (
     `*TokenLaunchBot Help*\n\n` +
     `*Supported Network:* Solana (SPL Tokens only)\n\n` +
-    `*Deployment Fee:* 5–10 SOL\n\n` +
+    `*Launch Cost:* Minimum *${DEPLOYMENT_FEE} SOL*\n` +
+    `_(covers mint creation, token accounts, minting, and network fees for a small token)_\n\n` +
     `*How it works:*\n` +
     `1. /create — Enter token details\n` +
     `2. /review — Check everything looks right\n` +
@@ -179,7 +186,7 @@ export function helpMessage(): string {
     `4. /panel — Manage your token\n\n` +
     `*Required fields:* Name, Symbol, Supply, Decimals\n\n` +
     `*Optional:* Description, Logo, Website, Telegram, Twitter, authority settings\n\n` +
-    `The bot uses a single dedicated deployment wallet. You cannot change this wallet.`
+    `The bot uses a single dedicated deployment wallet. Use /wallet to check your balance.`
   );
 }
 
@@ -208,7 +215,7 @@ export function reviewMessage(
 
   lines.push(`\n*Deployment*`);
   lines.push(`Wallet: \`${walletAddress}\``);
-  lines.push(`Fee: \`${fee} SOL\``);
+  lines.push(`Fee: \`${fee} SOL\` _(minimum for a small token — covers mint, accounts & network costs)_`);
   lines.push(`Network: Solana Mainnet`);
 
   lines.push(`\nReady to launch? Use /launch to deploy.`);
@@ -239,10 +246,18 @@ export function errorMessage(err: string): string {
 }
 
 export function insufficientFundsMessage(balance: number, fee: number): string {
+  const needed = (fee - balance).toFixed(4);
   return (
     `*Insufficient Funds*\n\n` +
-    `Your deployment wallet has \`${balance.toFixed(4)} SOL\`.\n` +
-    `Required: \`${fee} SOL\` (fee) + network costs.\n\n` +
-    `Please fund the wallet and try again.`
+    `*Current balance:* \`${balance.toFixed(4)} SOL\`\n` +
+    `*Required minimum:* \`${fee} SOL\`\n` +
+    `*Still needed:* \`${needed} SOL\`\n\n` +
+    `*What the ${fee} SOL covers:*\n` +
+    `• Mint account creation (rent)\n` +
+    `• Token account creation\n` +
+    `• Minting the full supply\n` +
+    `• Network transaction fees\n` +
+    `_This is the minimum cost for launching a small SPL token on Solana Mainnet._\n\n` +
+    `Fund the wallet and tap *Wallet Info* to check your balance.`
   );
 }

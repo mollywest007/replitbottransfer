@@ -1,5 +1,11 @@
 import { Markup } from "telegraf";
 
+export function walletRefreshKeyboard() {
+  return Markup.inlineKeyboard([
+    [Markup.button.callback("🔄 Refresh Balance", "wallet_refresh")],
+  ]);
+}
+
 export function mainMenuKeyboard() {
   return Markup.keyboard([
     ["Create Token", "Wallet Info"],
