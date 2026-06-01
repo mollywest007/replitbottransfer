@@ -1,5 +1,5 @@
 import { createBot } from "./handlers";
-import { depositMonitor } from "./monitor";
+import { depositMonitor, marketCapMonitor } from "./monitor";
 import { logger } from "../lib/logger";
 
 export function startBot() {
@@ -19,9 +19,10 @@ export function startBot() {
     .launch()
     .then(() => {
       logger.info("Telegram bot started (long polling)");
-      // Start deposit monitor after bot is up
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       depositMonitor.start(bot as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      marketCapMonitor.start(bot as any);
     })
     .catch((err) => {
       logger.error({ err }, "Failed to launch Telegram bot");
@@ -29,10 +30,12 @@ export function startBot() {
 
   process.once("SIGINT", () => {
     depositMonitor.stop();
+    marketCapMonitor.stop();
     bot.stop("SIGINT");
   });
   process.once("SIGTERM", () => {
     depositMonitor.stop();
+    marketCapMonitor.stop();
     bot.stop("SIGTERM");
   });
 }

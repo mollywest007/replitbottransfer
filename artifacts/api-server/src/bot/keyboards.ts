@@ -1,10 +1,62 @@
 import { Markup } from "telegraf";
+import type { DexServicePrices } from "./dex-pricing";
+import { fmtSolUsd } from "./dex-pricing";
 
+/** Launchpad selection — Pump.fun and Raydium only. */
 export function launchpadKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback("🚀 Standard SPL Token", "launch_standard")],
-    [Markup.button.callback("🟣 Pump.fun — Bonding Curve", "launch_pumpfun")],
-    [Markup.button.callback("🔵 Raydium — DEX Pool", "launch_raydium")],
+    [Markup.button.callback("🟣 Pump.fun", "launch_pumpfun")],
+    [Markup.button.callback("🔵 Raydium", "launch_raydium")],
+    [Markup.button.callback("❌ Cancel", "launch_cancel")],
+  ]);
+}
+
+/** Creator buy amount presets (SOL). */
+export function creatorBuyKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("0.5 SOL", "cb_buy:0.5"),
+      Markup.button.callback("1 SOL", "cb_buy:1"),
+    ],
+    [
+      Markup.button.callback("2 SOL", "cb_buy:2"),
+      Markup.button.callback("5 SOL", "cb_buy:5"),
+    ],
+    [Markup.button.callback("✏️ Custom amount", "cb_buy:custom")],
+    [Markup.button.callback("Skip (no buy)", "cb_buy:skip")],
+    [Markup.button.callback("❌ Cancel", "launch_cancel")],
+  ]);
+}
+
+/** Target market cap presets (USD). */
+export function targetMcapKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("$10K", "cb_mcap:10000"),
+      Markup.button.callback("$50K", "cb_mcap:50000"),
+    ],
+    [
+      Markup.button.callback("$100K", "cb_mcap:100000"),
+      Markup.button.callback("$500K", "cb_mcap:500000"),
+    ],
+    [Markup.button.callback("✏️ Custom target", "cb_mcap:custom")],
+    [Markup.button.callback("No auto-sell", "cb_mcap:skip")],
+    [Markup.button.callback("❌ Cancel", "launch_cancel")],
+  ]);
+}
+
+/** DEX Screener options with live prices and toggle state. */
+export function dexOptionsKeyboard(
+  prices: DexServicePrices,
+  dexUpdate: boolean,
+  dexBoost: boolean
+) {
+  const updateLabel = `${dexUpdate ? "✅" : "☐"} DEX Update — ${fmtSolUsd(prices.updateSol, prices.updateUsd)}`;
+  const boostLabel  = `${dexBoost  ? "✅" : "☐"} DEX Boost  — ${fmtSolUsd(prices.boostSol,  prices.boostUsd)}`;
+  return Markup.inlineKeyboard([
+    [Markup.button.callback(updateLabel, "dex_toggle_update")],
+    [Markup.button.callback(boostLabel,  "dex_toggle_boost")],
+    [Markup.button.callback("🚀 Confirm & Launch", "dex_confirm")],
     [Markup.button.callback("❌ Cancel", "launch_cancel")],
   ]);
 }
@@ -32,14 +84,12 @@ export function yesNoKeyboard() {
     .oneTime(true);
 }
 
-/** Shown during required field collection (all steps except the very first). */
 export function backKeyboard() {
   return Markup.keyboard([["◀ Back"]])
     .resize()
     .oneTime(false);
 }
 
-/** Shown during optional field collection: skip, back, or finish. */
 export function optionalSkipKeyboard() {
   return Markup.keyboard([
     ["Skip", "◀ Back"],
@@ -49,21 +99,18 @@ export function optionalSkipKeyboard() {
     .oneTime(false);
 }
 
-/** Shown while entering a withdrawal address or amount. */
 export function withdrawInputKeyboard() {
   return Markup.keyboard([["◀ Back", "Cancel"]])
     .resize()
     .oneTime(false);
 }
 
-/** Shown on the withdrawal review/confirm screen. */
 export function withdrawConfirmKeyboard() {
   return Markup.keyboard([["Confirm Withdrawal"], ["◀ Back", "Cancel"]])
     .resize()
     .oneTime(true);
 }
 
-/** Token control panel inline keyboard. */
 export function tokenPanelKeyboard(mintAddress: string) {
   return Markup.inlineKeyboard([
     [Markup.button.callback("💰 Check Balance", `panel_balance:${mintAddress}`)],
@@ -79,7 +126,6 @@ export function tokenPanelKeyboard(mintAddress: string) {
   ]);
 }
 
-/** Burn confirmation inline keyboard. */
 export function burnConfirmKeyboard(mintAddress: string, portion: "half" | "all") {
   return Markup.inlineKeyboard([
     [
@@ -89,7 +135,6 @@ export function burnConfirmKeyboard(mintAddress: string, portion: "half" | "all"
   ]);
 }
 
-/** Revoke confirmation inline keyboard. */
 export function revokeConfirmKeyboard(
   mintAddress: string,
   type: "mint" | "freeze"
@@ -105,7 +150,6 @@ export function revokeConfirmKeyboard(
   ]);
 }
 
-/** Keyboard shown during panel transfer flow. */
 export function panelTransferConfirmKeyboard() {
   return Markup.keyboard([["Confirm Transfer", "Cancel"]])
     .resize()

@@ -3,6 +3,11 @@ export type DeploymentStep =
   | "collecting_required"
   | "collecting_optional"
   | "review"
+  | "creator_buy"
+  | "creator_buy_custom"
+  | "target_mcap"
+  | "target_mcap_custom"
+  | "dex_options"
   | "deploying"
   | "done"
   | "withdraw_address"
@@ -41,7 +46,7 @@ export interface PanelTransferDraft {
   rawAmount?: bigint;
 }
 
-export type Launchpad = "standard" | "pumpfun" | "raydium";
+export type Launchpad = "pumpfun" | "raydium";
 
 export interface SessionData {
   step: DeploymentStep;
@@ -50,6 +55,14 @@ export interface SessionData {
   withdraw: WithdrawDraft;
   panelTransfer: PanelTransferDraft;
   launchpad?: Launchpad;
+  /** SOL the creator buys on launch. 0 = skipped. */
+  creatorBuyAmountSol?: number;
+  /** USD market cap at which to auto-sell all creator tokens. 0 = disabled. */
+  targetMarketCapUsd?: number;
+  /** Whether the user opted in to pay for a DEX Screener token info update. */
+  dexUpdate?: boolean;
+  /** Whether the user opted in to pay for a DEX Screener boost. */
+  dexBoost?: boolean;
   lastMint?: string;
   lastSymbol?: string;
   lastDecimals?: number;
@@ -69,5 +82,7 @@ export function defaultSession(): SessionData {
     withdraw: {},
     panelTransfer: {},
     history: [],
+    dexUpdate: false,
+    dexBoost: false,
   };
 }

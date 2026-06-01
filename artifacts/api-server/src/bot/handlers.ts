@@ -9,6 +9,9 @@ import {
   pumpfunSuccessMessage,
   raydiumSuccessMessage,
   launchpadSelectMessage,
+  creatorBuyMessage,
+  targetMcapMessage,
+  dexOptionsMessage,
   errorMessage,
   insufficientFundsMessage,
   walletMessage,
@@ -26,6 +29,9 @@ import {
 import {
   mainMenuKeyboard,
   launchpadKeyboard,
+  creatorBuyKeyboard,
+  targetMcapKeyboard,
+  dexOptionsKeyboard,
   backKeyboard,
   optionalSkipKeyboard,
   withdrawInputKeyboard,
@@ -37,7 +43,7 @@ import {
   panelTransferConfirmKeyboard,
   walletRefreshKeyboard,
 } from "./keyboards";
-import { depositMonitor } from "./monitor";
+import { depositMonitor, marketCapMonitor } from "./monitor";
 import {
   deployToken,
   getDeploymentWallet,
@@ -50,6 +56,7 @@ import {
   revokeFreezeAuthority,
 } from "./solana";
 import { deployPumpFun, PUMPFUN_MIN_SOL } from "./launchpad";
+import { fetchDexPrices } from "./dex-pricing";
 import { logger } from "../lib/logger";
 
 interface BotContext extends Context {
@@ -223,7 +230,6 @@ export function createBot(token: string): Telegraf<BotContext> {
       return;
     }
 
-    // Subscribe user to deposit notifications
     if (ctx.from?.id) {
       depositMonitor.subscribe(ctx.from.id);
     }
@@ -254,13 +260,10 @@ export function createBot(token: string): Telegraf<BotContext> {
     }
     try {
       const balance = await getWalletBalance(address);
-      await ctx.editMessageText(
-        walletMessage(address, balance, keyConfigured),
-        {
-          parse_mode: "Markdown",
-          reply_markup: walletRefreshKeyboard().reply_markup,
-        }
-      );
+      await ctx.editMessageText(walletMessage(address, balance, keyConfigured), {
+        parse_mode: "Markdown",
+        reply_markup: walletRefreshKeyboard().reply_markup,
+      });
     } catch {
       await ctx.answerCbQuery("Could not fetch balance — try again");
     }
@@ -360,137 +363,329 @@ export function createBot(token: string): Telegraf<BotContext> {
     }
 
     ctx.session.step = "review";
+    ctx.session.creatorBuyAmountSol = undefined;
+    ctx.session.targetMarketCapUsd = undefined;
+    ctx.session.dexUpdate = false;
+    ctx.session.dexBoost = false;
 
-    // Show launchpad selection — balance check happens on selection based on chosen platform
     await ctx.replyWithMarkdown(
       launchpadSelectMessage(t.name!, t.symbol!),
       launchpadKeyboard()
     );
   }
 
-  // ── Launchpad: Standard SPL ────────────────────────────────────────────────
-  bot.action("launch_standard", async (ctx) => {
-    await ctx.answerCbQuery("Standard SPL selected");
-    if (ctx.session.step !== "review") return;
+  // ── Launchpad selection ────────────────────────────────────────────────────
 
+  async function goToCreatorBuy(ctx: BotContext) {
     const wallet = getDeploymentWallet();
     const balance = await getWalletBalance(wallet);
-    if (balance < DEPLOYMENT_FEE + 0.05) {
-      await ctx.replyWithMarkdown(insufficientFundsMessage(balance, DEPLOYMENT_FEE));
-      return;
-    }
-
-    ctx.session.step = "deploying";
-    ctx.session.launchpad = "standard";
+    ctx.session.step = "creator_buy";
     await ctx.replyWithMarkdown(
-      `*Deploying Standard SPL Token* 🚀\n\nSigning and broadcasting to Solana Mainnet...\n\nThis may take 30–60 seconds.`
+      creatorBuyMessage(ctx.session.launchpad!, balance),
+      creatorBuyKeyboard()
     );
+  }
 
-    try {
-      const result = await deployToken(ctx.session.token, DEPLOYMENT_FEE);
-      ctx.session.lastMint = result.mintAddress;
-      ctx.session.lastSymbol = ctx.session.token.symbol;
-      ctx.session.lastDecimals = ctx.session.token.decimals ?? 9;
-      ctx.session.step = "done";
-      ctx.session.history = [];
-
-      await ctx.replyWithMarkdown(
-        successMessage(result.mintAddress, result.txSignature, result.solscanUrl, result.timestamp),
-        mainMenuKeyboard()
-      );
-      await showPanel(ctx, result.mintAddress);
-    } catch (err) {
-      ctx.session.step = "idle";
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error({ err }, "Standard SPL deployment failed");
-      await ctx.replyWithMarkdown(errorMessage(msg), mainMenuKeyboard());
-    }
-  });
-
-  // ── Launchpad: Pump.fun ────────────────────────────────────────────────────
   bot.action("launch_pumpfun", async (ctx) => {
     await ctx.answerCbQuery("Pump.fun selected");
     if (ctx.session.step !== "review") return;
-
-    const wallet = getDeploymentWallet();
-    const balance = await getWalletBalance(wallet);
-    if (balance < PUMPFUN_MIN_SOL) {
-      await ctx.replyWithMarkdown(
-        `*Insufficient Funds for Pump.fun*\n\n` +
-          `*Current balance:* \`${balance.toFixed(4)} SOL\`\n` +
-          `*Required minimum:* \`${PUMPFUN_MIN_SOL} SOL\`\n\n` +
-          `Fund the wallet and try again.`
-      );
-      return;
-    }
-
-    ctx.session.step = "deploying";
     ctx.session.launchpad = "pumpfun";
-    await ctx.replyWithMarkdown(
-      `*Launching on Pump.fun* 🟣\n\nUploading metadata and creating bonding curve...\n\nThis may take 30–60 seconds.`
-    );
-
-    try {
-      const result = await deployPumpFun(ctx.session.token);
-      ctx.session.lastMint = result.mintAddress;
-      ctx.session.lastSymbol = ctx.session.token.symbol;
-      ctx.session.lastDecimals = 6; // Pump.fun always uses 6 decimals
-      ctx.session.step = "done";
-      ctx.session.history = [];
-
-      await ctx.replyWithMarkdown(
-        pumpfunSuccessMessage(result.mintAddress, result.txSignature, result.viewUrl, result.timestamp),
-        mainMenuKeyboard()
-      );
-      await showPanel(ctx, result.mintAddress);
-    } catch (err) {
-      ctx.session.step = "idle";
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error({ err }, "Pump.fun deployment failed");
-      await ctx.replyWithMarkdown(errorMessage(msg), mainMenuKeyboard());
-    }
+    await goToCreatorBuy(ctx);
   });
 
-  // ── Launchpad: Raydium ─────────────────────────────────────────────────────
   bot.action("launch_raydium", async (ctx) => {
     await ctx.answerCbQuery("Raydium selected");
     if (ctx.session.step !== "review") return;
+    ctx.session.launchpad = "raydium";
+    await goToCreatorBuy(ctx);
+  });
 
-    const wallet = getDeploymentWallet();
-    const balance = await getWalletBalance(wallet);
-    if (balance < DEPLOYMENT_FEE + 0.05) {
-      await ctx.replyWithMarkdown(insufficientFundsMessage(balance, DEPLOYMENT_FEE));
+  // ── Creator buy presets ────────────────────────────────────────────────────
+
+  bot.action(/^cb_buy:(.+)$/, async (ctx) => {
+    if (ctx.session.step !== "creator_buy") return;
+    const value = ctx.match[1]!;
+
+    if (value === "custom") {
+      await ctx.answerCbQuery();
+      ctx.session.step = "creator_buy_custom";
+      await ctx.replyWithMarkdown(
+        `*Custom Creator Buy*\n\nHow much SOL do you want to invest? (e.g. \`3.5\`)\n\nWallet balance: \`${(await getWalletBalance(getDeploymentWallet())).toFixed(4)} SOL\``
+      );
       return;
     }
 
-    ctx.session.step = "deploying";
-    ctx.session.launchpad = "raydium";
+    if (value === "skip") {
+      await ctx.answerCbQuery("No creator buy");
+      ctx.session.creatorBuyAmountSol = 0;
+    } else {
+      const sol = parseFloat(value);
+      if (isNaN(sol) || sol <= 0) {
+        await ctx.answerCbQuery("Invalid amount");
+        return;
+      }
+      await ctx.answerCbQuery(`${sol} SOL selected`);
+      ctx.session.creatorBuyAmountSol = sol;
+    }
+
+    ctx.session.step = "target_mcap";
     await ctx.replyWithMarkdown(
-      `*Deploying SPL Token for Raydium* 🔵\n\nSigning and broadcasting to Solana Mainnet...\n\nThis may take 30–60 seconds.`
+      targetMcapMessage(ctx.session.creatorBuyAmountSol ?? 0),
+      targetMcapKeyboard()
+    );
+  });
+
+  // ── Target market cap presets ──────────────────────────────────────────────
+
+  bot.action(/^cb_mcap:(.+)$/, async (ctx) => {
+    if (ctx.session.step !== "target_mcap") return;
+    const value = ctx.match[1]!;
+
+    if (value === "custom") {
+      await ctx.answerCbQuery();
+      ctx.session.step = "target_mcap_custom";
+      await ctx.replyWithMarkdown(
+        `*Custom Market Cap Target*\n\nEnter the USD market cap target (e.g. \`75000\` for $75K):`
+      );
+      return;
+    }
+
+    if (value === "skip") {
+      await ctx.answerCbQuery("No auto-sell");
+      ctx.session.targetMarketCapUsd = 0;
+    } else {
+      const usd = parseInt(value, 10);
+      if (isNaN(usd) || usd <= 0) {
+        await ctx.answerCbQuery("Invalid amount");
+        return;
+      }
+      await ctx.answerCbQuery(`$${usd.toLocaleString()} target set`);
+      ctx.session.targetMarketCapUsd = usd;
+    }
+
+    await showDexOptions(ctx);
+  });
+
+  async function showDexOptions(ctx: BotContext) {
+    ctx.session.step = "dex_options";
+    const [prices, balance] = await Promise.all([
+      fetchDexPrices(),
+      getWalletBalance(getDeploymentWallet()),
+    ]);
+    await ctx.replyWithMarkdown(
+      dexOptionsMessage(
+        prices,
+        balance,
+        ctx.session.creatorBuyAmountSol ?? 0,
+        ctx.session.targetMarketCapUsd ?? 0
+      ),
+      dexOptionsKeyboard(prices, ctx.session.dexUpdate ?? false, ctx.session.dexBoost ?? false)
+    );
+  }
+
+  // ── DEX option toggles ─────────────────────────────────────────────────────
+
+  bot.action("dex_toggle_update", async (ctx) => {
+    if (ctx.session.step !== "dex_options") return;
+    ctx.session.dexUpdate = !ctx.session.dexUpdate;
+    await ctx.answerCbQuery(ctx.session.dexUpdate ? "DEX Update added" : "DEX Update removed");
+    const prices = await fetchDexPrices();
+    await ctx.editMessageReplyMarkup(
+      dexOptionsKeyboard(prices, ctx.session.dexUpdate, ctx.session.dexBoost ?? false)
+        .reply_markup
+    );
+  });
+
+  bot.action("dex_toggle_boost", async (ctx) => {
+    if (ctx.session.step !== "dex_options") return;
+    ctx.session.dexBoost = !ctx.session.dexBoost;
+    await ctx.answerCbQuery(ctx.session.dexBoost ? "DEX Boost added" : "DEX Boost removed");
+    const prices = await fetchDexPrices();
+    await ctx.editMessageReplyMarkup(
+      dexOptionsKeyboard(prices, ctx.session.dexUpdate ?? false, ctx.session.dexBoost)
+        .reply_markup
+    );
+  });
+
+  // ── DEX confirm → deploy ───────────────────────────────────────────────────
+
+  bot.action("dex_confirm", async (ctx) => {
+    await ctx.answerCbQuery("Checking balance...");
+    if (ctx.session.step !== "dex_options") return;
+
+    const wallet = getDeploymentWallet();
+    const [balance, prices] = await Promise.all([
+      getWalletBalance(wallet),
+      fetchDexPrices(),
+    ]);
+
+    const launchpad = ctx.session.launchpad!;
+    const creatorBuy = ctx.session.creatorBuyAmountSol ?? 0;
+    const dexUpdateSol = ctx.session.dexUpdate ? prices.updateSol : 0;
+    const dexBoostSol = ctx.session.dexBoost ? prices.boostSol : 0;
+
+    // Minimum wallet balance gate
+    if (balance < DEPLOYMENT_FEE) {
+      await ctx.replyWithMarkdown(
+        insufficientFundsMessage(balance, DEPLOYMENT_FEE, [
+          { label: "Minimum wallet balance required", sol: DEPLOYMENT_FEE },
+        ])
+      );
+      return;
+    }
+
+    // Total cost check
+    const creationBuffer = launchpad === "pumpfun" ? PUMPFUN_MIN_SOL : 0.05;
+    const totalCost = creatorBuy + dexUpdateSol + dexBoostSol + creationBuffer;
+
+    if (balance < totalCost) {
+      const breakdown: { label: string; sol: number }[] = [
+        { label: "Token creation + fees", sol: creationBuffer },
+      ];
+      if (creatorBuy > 0) breakdown.push({ label: "Creator buy", sol: creatorBuy });
+      if (dexUpdateSol > 0) breakdown.push({ label: `DEX Update ($${prices.updateUsd})`, sol: dexUpdateSol });
+      if (dexBoostSol > 0) breakdown.push({ label: `DEX Boost ($${prices.boostUsd})`, sol: dexBoostSol });
+      await ctx.replyWithMarkdown(
+        insufficientFundsMessage(balance, totalCost, breakdown)
+      );
+      return;
+    }
+
+    // All good — deploy
+    ctx.session.step = "deploying";
+    const platformLabel = launchpad === "pumpfun" ? "Pump.fun 🟣" : "Raydium 🔵";
+    await ctx.replyWithMarkdown(
+      `*Deploying on ${platformLabel}*\n\n` +
+      (creatorBuy > 0 ? `Creator buy: \`${creatorBuy} SOL\`\n` : ``) +
+      (ctx.session.targetMarketCapUsd
+        ? `Auto-sell target: \`$${ctx.session.targetMarketCapUsd.toLocaleString()}\`\n`
+        : ``) +
+      `\nSigning and broadcasting to Solana Mainnet...\n_This may take 30–60 seconds._`
     );
 
     try {
-      const result = await deployToken(ctx.session.token, DEPLOYMENT_FEE);
-      ctx.session.lastMint = result.mintAddress;
-      ctx.session.lastSymbol = ctx.session.token.symbol;
-      ctx.session.lastDecimals = ctx.session.token.decimals ?? 9;
-      ctx.session.step = "done";
-      ctx.session.history = [];
-
-      await ctx.replyWithMarkdown(
-        raydiumSuccessMessage(result.mintAddress, result.txSignature, result.solscanUrl, result.timestamp),
-        mainMenuKeyboard()
-      );
-      await showPanel(ctx, result.mintAddress);
+      if (launchpad === "pumpfun") {
+        await executePumpFunDeploy(ctx, creatorBuy, prices, dexUpdateSol, dexBoostSol);
+      } else {
+        await executeRadyiumDeploy(ctx, prices, dexUpdateSol, dexBoostSol);
+      }
     } catch (err) {
       ctx.session.step = "idle";
       const msg = err instanceof Error ? err.message : String(err);
-      logger.error({ err }, "Raydium SPL deployment failed");
+      logger.error({ err, launchpad }, "Deployment failed");
       await ctx.replyWithMarkdown(errorMessage(msg), mainMenuKeyboard());
     }
   });
 
-  // ── Launchpad: Cancel ──────────────────────────────────────────────────────
+  async function executePumpFunDeploy(
+    ctx: BotContext,
+    creatorBuy: number,
+    prices: Awaited<ReturnType<typeof fetchDexPrices>>,
+    dexUpdateSol: number,
+    dexBoostSol: number
+  ) {
+    const result = await deployPumpFun(ctx.session.token, creatorBuy);
+    const targetMcap = ctx.session.targetMarketCapUsd ?? 0;
+
+    ctx.session.lastMint = result.mintAddress;
+    ctx.session.lastSymbol = ctx.session.token.symbol;
+    ctx.session.lastDecimals = 6; // Pump.fun always uses 6 decimals
+    ctx.session.step = "done";
+    ctx.session.history = [];
+
+    await ctx.replyWithMarkdown(
+      pumpfunSuccessMessage(
+        result.mintAddress,
+        result.txSignature,
+        result.viewUrl,
+        result.timestamp,
+        creatorBuy,
+        targetMcap
+      ),
+      mainMenuKeyboard()
+    );
+
+    // DEX Screener notice
+    if (dexUpdateSol > 0 || dexBoostSol > 0) {
+      const dexLines: string[] = [`*DEX Screener Services*\n`];
+      if (dexUpdateSol > 0) {
+        dexLines.push(`• Token Update: \`${dexUpdateSol.toFixed(4)} SOL\` ($${prices.updateUsd})`);
+      }
+      if (dexBoostSol > 0) {
+        dexLines.push(`• Boost: \`${dexBoostSol.toFixed(4)} SOL\` ($${prices.boostUsd})`);
+      }
+      dexLines.push(`\nVisit [dexscreener.com](https://dexscreener.com) to apply your update/boost for \`${result.mintAddress}\``);
+      await ctx.replyWithMarkdown(dexLines.join("\n"));
+    }
+
+    // Register market cap monitor
+    if (targetMcap > 0 && ctx.from?.id) {
+      marketCapMonitor.watch({
+        mintAddress: result.mintAddress,
+        targetUsd: targetMcap,
+        chatId: ctx.from.id,
+        launchpad: "pumpfun",
+        hasCreatorTokens: creatorBuy > 0,
+      });
+    }
+
+    await showPanel(ctx, result.mintAddress);
+  }
+
+  async function executeRadyiumDeploy(
+    ctx: BotContext,
+    prices: Awaited<ReturnType<typeof fetchDexPrices>>,
+    dexUpdateSol: number,
+    dexBoostSol: number
+  ) {
+    const result = await deployToken(ctx.session.token, DEPLOYMENT_FEE);
+    const targetMcap = ctx.session.targetMarketCapUsd ?? 0;
+
+    ctx.session.lastMint = result.mintAddress;
+    ctx.session.lastSymbol = ctx.session.token.symbol;
+    ctx.session.lastDecimals = ctx.session.token.decimals ?? 9;
+    ctx.session.step = "done";
+    ctx.session.history = [];
+
+    await ctx.replyWithMarkdown(
+      raydiumSuccessMessage(
+        result.mintAddress,
+        result.txSignature,
+        result.solscanUrl,
+        result.timestamp,
+        targetMcap
+      ),
+      mainMenuKeyboard()
+    );
+
+    // DEX Screener notice
+    if (dexUpdateSol > 0 || dexBoostSol > 0) {
+      const dexLines: string[] = [`*DEX Screener Services*\n`];
+      if (dexUpdateSol > 0) {
+        dexLines.push(`• Token Update: \`${dexUpdateSol.toFixed(4)} SOL\` ($${prices.updateUsd})`);
+      }
+      if (dexBoostSol > 0) {
+        dexLines.push(`• Boost: \`${dexBoostSol.toFixed(4)} SOL\` ($${prices.boostUsd})`);
+      }
+      dexLines.push(`\nVisit [dexscreener.com](https://dexscreener.com) to apply your update/boost for \`${result.mintAddress}\``);
+      await ctx.replyWithMarkdown(dexLines.join("\n"));
+    }
+
+    // Register market cap monitor (notify-only for Raydium)
+    if (targetMcap > 0 && ctx.from?.id) {
+      marketCapMonitor.watch({
+        mintAddress: result.mintAddress,
+        targetUsd: targetMcap,
+        chatId: ctx.from.id,
+        launchpad: "raydium",
+        hasCreatorTokens: false,
+      });
+    }
+
+    await showPanel(ctx, result.mintAddress);
+  }
+
+  // ── Launch cancel ──────────────────────────────────────────────────────────
   bot.action("launch_cancel", async (ctx) => {
     await ctx.answerCbQuery("Cancelled");
     ctx.session.step = "idle";
@@ -498,7 +693,6 @@ export function createBot(token: string): Telegraf<BotContext> {
   });
 
   bot.hears("Cancel", async (ctx) => {
-    // Handle panel transfer cancel
     if (
       ctx.session.step === "panel_transfer_address" ||
       ctx.session.step === "panel_transfer_amount"
@@ -525,7 +719,6 @@ export function createBot(token: string): Telegraf<BotContext> {
     const mint = ctx.match[1]!;
     const wallet = getDeploymentWallet();
     const symbol = ctx.session.lastSymbol ?? "TOKEN";
-    const decimals = ctx.session.lastDecimals ?? 9;
 
     try {
       const bal = await getTokenBalance(mint, wallet);
@@ -537,10 +730,7 @@ export function createBot(token: string): Telegraf<BotContext> {
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      await ctx.replyWithMarkdown(
-        `*Could not fetch balance.*\n\n${msg}`,
-        mainMenuKeyboard()
-      );
+      await ctx.replyWithMarkdown(`*Could not fetch balance.*\n\n${msg}`, mainMenuKeyboard());
     }
   });
 
@@ -873,6 +1063,16 @@ export function createBot(token: string): Telegraf<BotContext> {
       return;
     }
 
+    if (ctx.session.step === "creator_buy_custom") {
+      await handleCreatorBuyCustom(ctx, text);
+      return;
+    }
+
+    if (ctx.session.step === "target_mcap_custom") {
+      await handleTargetMcapCustom(ctx, text);
+      return;
+    }
+
     // Fallback
     await ctx.replyWithMarkdown(mainMenuMessage(), mainMenuKeyboard());
   });
@@ -1074,5 +1274,60 @@ async function handlePanelTransferAmount(ctx: BotContext, text: string) {
   await ctx.replyWithMarkdown(
     transferTokenReviewMessage(toAddress, num, symbol),
     panelTransferConfirmKeyboard()
+  );
+}
+
+// ── Creator buy / target mcap custom text input ───────────────────────────────
+
+async function handleCreatorBuyCustom(ctx: BotContext, text: string) {
+  const sol = parseFloat(text);
+  if (isNaN(sol) || sol <= 0) {
+    await ctx.replyWithMarkdown(
+      "Invalid amount. Enter a positive number of SOL (e.g. `3.5`)."
+    );
+    return;
+  }
+
+  const balance = await getWalletBalance(getDeploymentWallet());
+  if (sol >= balance) {
+    await ctx.replyWithMarkdown(
+      `*Too much.* You only have \`${balance.toFixed(4)} SOL\` in the wallet.\n\nEnter a smaller amount.`
+    );
+    return;
+  }
+
+  ctx.session.creatorBuyAmountSol = sol;
+  ctx.session.step = "target_mcap";
+  await ctx.replyWithMarkdown(
+    targetMcapMessage(sol),
+    targetMcapKeyboard()
+  );
+}
+
+async function handleTargetMcapCustom(ctx: BotContext, text: string) {
+  const raw = text.replace(/[$,k]/gi, (m) => (m.toLowerCase() === "k" ? "000" : ""));
+  const usd = parseInt(raw, 10);
+
+  if (isNaN(usd) || usd <= 0) {
+    await ctx.replyWithMarkdown(
+      "Invalid amount. Enter a USD number (e.g. `75000` or `75k`)."
+    );
+    return;
+  }
+
+  ctx.session.targetMarketCapUsd = usd;
+
+  // Re-use the same showDexOptions helper — it reads from ctx.session
+  // Build a temporary fake BotContext reference for the helper.
+  // Since showDexOptions is defined inside createBot and ctx is valid, we call it directly.
+  ctx.session.step = "target_mcap"; // briefly set so showDexOptions runs from correct state
+  const [prices, balance] = await Promise.all([
+    fetchDexPrices(),
+    getWalletBalance(getDeploymentWallet()),
+  ]);
+  ctx.session.step = "dex_options";
+  await ctx.replyWithMarkdown(
+    dexOptionsMessage(prices, balance, ctx.session.creatorBuyAmountSol ?? 0, usd),
+    dexOptionsKeyboard(prices, ctx.session.dexUpdate ?? false, ctx.session.dexBoost ?? false)
   );
 }

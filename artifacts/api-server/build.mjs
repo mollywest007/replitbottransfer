@@ -19,6 +19,13 @@ async function buildAll() {
     platform: "node",
     bundle: true,
     format: "esm",
+    // keepNames preserves the original `.name` property on renamed classes/functions.
+    // This is critical: esbuild renames abort-controller's `AbortSignal` class to
+    // `AbortSignal2` inside the bundle to avoid shadowing the native global, but
+    // node-fetch's isAbortSignal() checks proto.constructor.name === 'AbortSignal'.
+    // With keepNames:true esbuild emits Object.defineProperty(AbortSignal2,'name',
+    // {value:'AbortSignal'}) so the check passes and Telegraf polling works.
+    keepNames: true,
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",

@@ -6,12 +6,13 @@
  */
 import {
   Keypair,
+  PublicKey,
   Transaction,
   VersionedTransaction,
 } from "@solana/web3.js";
 import { logger } from "../lib/logger";
 import type { TokenConfig } from "./session";
-import { connection, getDeploymentKeypair } from "./solana";
+import { connection, getDeploymentKeypair, getTokenBalance } from "./solana";
 
 export interface LaunchpadDeployResult {
   mintAddress: string;
@@ -20,7 +21,12 @@ export interface LaunchpadDeployResult {
   timestamp: string;
 }
 
-/** Minimum SOL needed for Pump.fun token creation (their fee ~0.02 SOL, 0.05 for safety). */
+export interface SellResult {
+  txSignature: string;
+  mintAddress: string;
+}
+
+/** Minimum SOL needed for Pump.fun token creation (~0.02 SOL fee, 0.05 for safety). */
 export const PUMPFUN_MIN_SOL = 0.05;
 
 async function fetchLogoBlob(logoUrl?: string): Promise<Blob> {
@@ -47,16 +53,19 @@ async function fetchLogoBlob(logoUrl?: string): Promise<Blob> {
   return new Blob([png], { type: "image/png" });
 }
 
-export async function deployPumpFun(config: TokenConfig): Promise<LaunchpadDeployResult> {
-  // Lazy-load anchor and pumpdotfun-sdk to prevent their fetch polyfills
-  // from running at startup and breaking Telegraf's native AbortSignal usage.
+/**
+ * Loads Anchor + PumpFunSDK lazily to prevent their fetch polyfills
+ * from corrupting the global AbortSignal at startup.
+ */
+async function loadPumpFunSdk(payer: Keypair) {
   const [{ AnchorProvider }, { PumpFunSDK }] = await Promise.all([
-    import("@coral-xyz/anchor") as Promise<{ AnchorProvider: typeof import("@coral-xyz/anchor").AnchorProvider }>,
-    import("pumpdotfun-sdk") as Promise<{ PumpFunSDK: typeof import("pumpdotfun-sdk").PumpFunSDK }>,
+    import("@coral-xyz/anchor") as Promise<{
+      AnchorProvider: typeof import("@coral-xyz/anchor").AnchorProvider;
+    }>,
+    import("pumpdotfun-sdk") as Promise<{
+      PumpFunSDK: typeof import("pumpdotfun-sdk").PumpFunSDK;
+    }>,
   ]);
-
-  const payer = getDeploymentKeypair();
-  const mintKeypair = Keypair.generate();
 
   const anchorWallet = {
     payer,
@@ -69,7 +78,9 @@ export async function deployPumpFun(config: TokenConfig): Promise<LaunchpadDeplo
       }
       return tx;
     },
-    async signAllTransactions<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]> {
+    async signAllTransactions<T extends Transaction | VersionedTransaction>(
+      txs: T[]
+    ): Promise<T[]> {
       return txs.map((tx) => {
         if (tx instanceof VersionedTransaction) {
           tx.sign([payer]);
@@ -86,7 +97,17 @@ export async function deployPumpFun(config: TokenConfig): Promise<LaunchpadDeplo
     commitment: "confirmed",
   });
 
-  const sdk = new PumpFunSDK(provider);
+  return new PumpFunSDK(provider);
+}
+
+export async function deployPumpFun(
+  config: TokenConfig,
+  creatorBuyAmountSol = 0
+): Promise<LaunchpadDeployResult> {
+  const payer = getDeploymentKeypair();
+  const mintKeypair = Keypair.generate();
+  const sdk = await loadPumpFunSdk(payer);
+
   const logoBlob = await fetchLogoBlob(config.logoUrl);
 
   const metadata = {
@@ -99,8 +120,11 @@ export async function deployPumpFun(config: TokenConfig): Promise<LaunchpadDeplo
     website: config.website,
   };
 
+  // Convert SOL to lamports (bigint)
+  const buyLamports = BigInt(Math.round(creatorBuyAmountSol * 1e9));
+
   logger.info(
-    { mint: mintKeypair.publicKey.toBase58() },
+    { mint: mintKeypair.publicKey.toBase58(), creatorBuyAmountSol },
     "Deploying token on Pump.fun"
   );
 
@@ -108,7 +132,7 @@ export async function deployPumpFun(config: TokenConfig): Promise<LaunchpadDeplo
     payer,
     mintKeypair,
     metadata,
-    BigInt(0),
+    buyLamports,
     BigInt(100),
     { unitLimit: 250_000, unitPrice: 250_000 },
     "confirmed",
@@ -128,4 +152,42 @@ export async function deployPumpFun(config: TokenConfig): Promise<LaunchpadDeplo
     viewUrl: `https://pump.fun/coin/${mintAddress}`,
     timestamp: new Date().toISOString(),
   };
+}
+
+/**
+ * Sells all creator tokens on Pump.fun.
+ * Called automatically by the market cap monitor when the target is hit.
+ */
+export async function sellAllPumpFun(mintAddress: string): Promise<SellResult> {
+  const payer = getDeploymentKeypair();
+  const sdk = await loadPumpFunSdk(payer);
+
+  const wallet = payer.publicKey.toBase58();
+  const bal = await getTokenBalance(mintAddress, wallet);
+  if (bal.rawAmount === BigInt(0)) {
+    throw new Error("No tokens to sell — creator balance is 0");
+  }
+
+  logger.info(
+    { mint: mintAddress, rawAmount: bal.rawAmount.toString() },
+    "Auto-selling all Pump.fun tokens"
+  );
+
+  const result = await sdk.sell(
+    payer,
+    new PublicKey(mintAddress),
+    bal.rawAmount,
+    BigInt(100),   // 1% slippage basis points
+    { unitLimit: 250_000, unitPrice: 250_000 },
+    "confirmed",
+    "finalized"
+  );
+
+  if (!result.success || !result.signature) {
+    throw new Error(
+      `Pump.fun sell failed: ${result.error ? String(result.error) : "unknown error"}`
+    );
+  }
+
+  return { txSignature: result.signature, mintAddress };
 }
