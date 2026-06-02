@@ -268,11 +268,13 @@ export function dexOptionsMessage(
     ? `$${targetMcap.toLocaleString()}`
     : "No auto-sell";
 
-  const creationBuffer = 0.05;
-  const dexUpdateSol = dexUpdate ? prices.updateSol : 0;
-  const dexBoostSol  = dexBoost  ? prices.boostSol  : 0;
-  const totalSol     = creationBuffer + creatorBuySol + dexUpdateSol + dexBoostSol;
-  const totalUsd     = totalSol * prices.solUsd;
+  const PLATFORM_FEE_USD = 50;
+  const creationBuffer  = 0.05;
+  const platformFeeSol  = PLATFORM_FEE_USD / prices.solUsd;
+  const dexUpdateSol    = dexUpdate ? prices.updateSol : 0;
+  const dexBoostSol     = dexBoost  ? prices.boostSol  : 0;
+  const totalSol        = creationBuffer + platformFeeSol + creatorBuySol + dexUpdateSol + dexBoostSol;
+  const totalUsd        = totalSol * prices.solUsd;
 
   const lines: string[] = [
     `*DEX Screener Options* _(optional)_\n`,
@@ -287,6 +289,7 @@ export function dexOptionsMessage(
     `_SOL rate: $${prices.solUsd.toFixed(2)}/SOL_\n`,
     `*── Total Cost ──*`,
     `Token creation + fees: \`${creationBuffer.toFixed(4)} SOL\``,
+    `Platform fee: \`${platformFeeSol.toFixed(4)} SOL\` ($${PLATFORM_FEE_USD}) — _retained per launch_`,
   ];
 
   if (creatorBuySol > 0) {
