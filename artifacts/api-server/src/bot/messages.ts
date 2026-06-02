@@ -199,8 +199,8 @@ export function reviewMessage(
   lines.push(`*Token Details*`);
   lines.push(`Name: \`${token.name}\``);
   lines.push(`Symbol: \`${token.symbol}\``);
-  lines.push(`Total Supply: \`${(token.supply ?? 0).toLocaleString()}\``);
-  lines.push(`Decimals: \`${token.decimals ?? 9}\``);
+  lines.push(`Total Supply: \`1,000,000,000\` _(fixed)_`);
+  lines.push(`Decimals: \`9\` _(fixed)_`);
 
   if (token.description) lines.push(`Description: ${token.description}`);
   if (token.logoUrl) lines.push(`Logo: ${token.logoUrl}`);

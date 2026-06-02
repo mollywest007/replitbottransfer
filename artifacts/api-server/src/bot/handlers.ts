@@ -66,15 +66,11 @@ interface BotContext extends Context {
 const REQUIRED_FIELDS: Array<keyof SessionData["token"]> = [
   "name",
   "symbol",
-  "supply",
-  "decimals",
 ];
 
 const REQUIRED_PROMPTS: Record<string, string> = {
   name: "What is your *token name*?\n\nExample: `Solana Gold`",
   symbol: "What is your *token symbol*?\n\nExample: `SGOLD` (2–10 characters, uppercase)",
-  supply: "What is the *total supply*?\n\nExample: `1000000000` (1 billion)",
-  decimals: "How many *decimals*? (0–9)\n\nDefault is `9`. Send a number or type `skip` for default.",
 };
 
 const OPTIONAL_FIELDS: Array<keyof SessionData["token"]> = [
@@ -334,7 +330,7 @@ export function createBot(token: string): Telegraf<BotContext> {
 
   async function showReview(ctx: BotContext) {
     const t = ctx.session.token;
-    if (!t.name || !t.symbol || !t.supply || t.decimals === undefined) {
+    if (!t.name || !t.symbol) {
       await ctx.replyWithMarkdown(
         "Please complete token creation first.\n\nUse /create to begin."
       );
@@ -350,7 +346,7 @@ export function createBot(token: string): Telegraf<BotContext> {
 
   async function initiateLaunch(ctx: BotContext) {
     const t = ctx.session.token;
-    if (!t.name || !t.symbol || !t.supply || t.decimals === undefined) {
+    if (!t.name || !t.symbol) {
       await ctx.replyWithMarkdown(
         "Token configuration is incomplete.\n\nUse /create to set up your token first."
       );
@@ -1122,26 +1118,6 @@ async function handleRequiredInput(ctx: BotContext, text: string) {
       return;
     }
     ctx.session.token.symbol = sym;
-  } else if (field === "supply") {
-    const num = Number(text.replace(/[,_]/g, ""));
-    if (isNaN(num) || num <= 0 || num > 1e18) {
-      await ctx.replyWithMarkdown(
-        "Invalid supply. Enter a positive number (e.g. `1000000000`)."
-      );
-      return;
-    }
-    ctx.session.token.supply = num;
-  } else if (field === "decimals") {
-    if (text.toLowerCase() === "skip") {
-      ctx.session.token.decimals = 9;
-    } else {
-      const d = parseInt(text, 10);
-      if (isNaN(d) || d < 0 || d > 9) {
-        await ctx.replyWithMarkdown("Decimals must be 0–9. Try again.");
-        return;
-      }
-      ctx.session.token.decimals = d;
-    }
   }
 
   pushHistory(ctx);

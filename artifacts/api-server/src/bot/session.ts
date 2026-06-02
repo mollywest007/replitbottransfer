@@ -75,6 +75,7 @@ export function defaultSession(): SessionData {
   return {
     step: "idle",
     token: {
+      supply: 1_000_000_000,
       decimals: 9,
       revokeMint: false,
       revokeFreeze: false,
