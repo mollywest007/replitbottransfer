@@ -962,11 +962,7 @@ export function createBot(token: string): Telegraf<BotContext> {
     ctx.session.step = "idle";
     ctx.session.history = [];
     await ctx.answerCbQuery("Settings saved");
-    const wallet = getDeploymentWallet();
-    await ctx.replyWithMarkdown(
-      reviewMessage(ctx.session.token, wallet, DEPLOYMENT_FEE) + "\n\nUse /launch when ready.",
-      mainMenuKeyboard()
-    );
+    await initiateLaunch(ctx);
   });
 
   // ── Photo upload handler ───────────────────────────────────────────────────
