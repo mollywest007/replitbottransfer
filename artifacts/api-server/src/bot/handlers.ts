@@ -472,14 +472,18 @@ export function createBot(token: string): Telegraf<BotContext> {
       fetchDexPrices(),
       getWalletBalance(getDeploymentWallet()),
     ]);
+    const dexUpdate = ctx.session.dexUpdate ?? false;
+    const dexBoost  = ctx.session.dexBoost  ?? false;
     await ctx.replyWithMarkdown(
       dexOptionsMessage(
         prices,
         balance,
         ctx.session.creatorBuyAmountSol ?? 0,
-        ctx.session.targetMarketCapUsd ?? 0
+        ctx.session.targetMarketCapUsd ?? 0,
+        dexUpdate,
+        dexBoost
       ),
-      dexOptionsKeyboard(prices, ctx.session.dexUpdate ?? false, ctx.session.dexBoost ?? false)
+      dexOptionsKeyboard(prices, dexUpdate, dexBoost)
     );
   }
 
@@ -489,10 +493,22 @@ export function createBot(token: string): Telegraf<BotContext> {
     if (ctx.session.step !== "dex_options") return;
     ctx.session.dexUpdate = !ctx.session.dexUpdate;
     await ctx.answerCbQuery(ctx.session.dexUpdate ? "DEX Update added" : "DEX Update removed");
-    const prices = await fetchDexPrices();
-    await ctx.editMessageReplyMarkup(
-      dexOptionsKeyboard(prices, ctx.session.dexUpdate, ctx.session.dexBoost ?? false)
-        .reply_markup
+    const [prices, balance] = await Promise.all([
+      fetchDexPrices(),
+      getWalletBalance(getDeploymentWallet()),
+    ]);
+    const dexUpdate = ctx.session.dexUpdate;
+    const dexBoost  = ctx.session.dexBoost ?? false;
+    await ctx.editMessageText(
+      dexOptionsMessage(
+        prices,
+        balance,
+        ctx.session.creatorBuyAmountSol ?? 0,
+        ctx.session.targetMarketCapUsd ?? 0,
+        dexUpdate,
+        dexBoost
+      ),
+      { parse_mode: "Markdown", reply_markup: dexOptionsKeyboard(prices, dexUpdate, dexBoost).reply_markup }
     );
   });
 
@@ -500,10 +516,22 @@ export function createBot(token: string): Telegraf<BotContext> {
     if (ctx.session.step !== "dex_options") return;
     ctx.session.dexBoost = !ctx.session.dexBoost;
     await ctx.answerCbQuery(ctx.session.dexBoost ? "DEX Boost added" : "DEX Boost removed");
-    const prices = await fetchDexPrices();
-    await ctx.editMessageReplyMarkup(
-      dexOptionsKeyboard(prices, ctx.session.dexUpdate ?? false, ctx.session.dexBoost)
-        .reply_markup
+    const [prices, balance] = await Promise.all([
+      fetchDexPrices(),
+      getWalletBalance(getDeploymentWallet()),
+    ]);
+    const dexUpdate = ctx.session.dexUpdate ?? false;
+    const dexBoost  = ctx.session.dexBoost;
+    await ctx.editMessageText(
+      dexOptionsMessage(
+        prices,
+        balance,
+        ctx.session.creatorBuyAmountSol ?? 0,
+        ctx.session.targetMarketCapUsd ?? 0,
+        dexUpdate,
+        dexBoost
+      ),
+      { parse_mode: "Markdown", reply_markup: dexOptionsKeyboard(prices, dexUpdate, dexBoost).reply_markup }
     );
   });
 

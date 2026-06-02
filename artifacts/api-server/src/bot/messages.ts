@@ -251,16 +251,24 @@ export function targetMcapMessage(creatorBuySol: number): string {
   );
 }
 
-/** Step 4: DEX Screener options with live prices. */
+/** Step 4: DEX Screener options with live prices and a running cost breakdown. */
 export function dexOptionsMessage(
   prices: DexServicePrices,
   balance: number,
   creatorBuySol: number,
-  targetMcap: number
+  targetMcap: number,
+  dexUpdate: boolean,
+  dexBoost: boolean
 ): string {
   const mcapStr = targetMcap > 0
     ? `$${targetMcap.toLocaleString()}`
     : "No auto-sell";
+
+  const creationBuffer = 0.05;
+  const dexUpdateSol = dexUpdate ? prices.updateSol : 0;
+  const dexBoostSol  = dexBoost  ? prices.boostSol  : 0;
+  const totalSol     = creationBuffer + creatorBuySol + dexUpdateSol + dexBoostSol;
+  const totalUsd     = totalSol * prices.solUsd;
 
   const lines: string[] = [
     `*DEX Screener Options* _(optional)_\n`,
@@ -272,8 +280,22 @@ export function dexOptionsMessage(
     `*DEX Boost* — ${fmtSolUsd(prices.boostSol, prices.boostUsd)}`,
     `_Boosts your token to the trending section._\n`,
     `Toggle the options below, then tap *Confirm & Launch*.\n`,
-    `_SOL rate: $${prices.solUsd.toFixed(2)}/SOL_`,
+    `_SOL rate: $${prices.solUsd.toFixed(2)}/SOL_\n`,
+    `*── Total Cost ──*`,
+    `Token creation + fees: \`${creationBuffer.toFixed(4)} SOL\``,
   ];
+
+  if (creatorBuySol > 0) {
+    lines.push(`Creator buy: \`${creatorBuySol.toFixed(4)} SOL\``);
+  }
+  if (dexUpdate) {
+    lines.push(`DEX Update: \`${dexUpdateSol.toFixed(4)} SOL\` ($${prices.updateUsd})`);
+  }
+  if (dexBoost) {
+    lines.push(`DEX Boost: \`${dexBoostSol.toFixed(4)} SOL\` ($${prices.boostUsd})`);
+  }
+  lines.push(`*You'll spend: \`${totalSol.toFixed(4)} SOL\` (~$${totalUsd.toFixed(0)})*`);
+
   return lines.join("\n");
 }
 
