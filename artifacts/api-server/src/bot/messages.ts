@@ -184,7 +184,8 @@ export function helpMessage(): string {
     `4. /panel — Manage your token after launch\n\n` +
     `*Required fields:* Name, Symbol, Supply, Decimals\n\n` +
     `*Optional:* Description, Logo, Website, Telegram, Twitter, authority settings\n\n` +
-    `The bot uses a single dedicated deployment wallet. Use /wallet to check your balance.`
+    `The bot uses a single dedicated deployment wallet. Use /wallet to check your balance.\n\n` +
+    `*Support*\nFor help, contact [@devBernard](https://t.me/devBernard) on Telegram.`
   );
 }
 
