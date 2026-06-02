@@ -220,12 +220,15 @@ export function reviewMessage(
   return lines.join("\n");
 }
 
-/** Simple 2-option launchpad selector — no descriptions. */
+/** Launchpad selector shown at the start of the launch flow. */
 export function launchpadSelectMessage(tokenName: string, tokenSymbol: string): string {
   return (
-    `*Select Launchpad*\n\n` +
-    `Token: *${tokenName}* (${tokenSymbol})\n\n` +
-    `Choose where to launch your coin:`
+    `*Launch ${tokenName}* (${tokenSymbol})\n\n` +
+    `*What the bot does after launch:*\n\n` +
+    `🎯 *Auto Market Cap Push* — Set a target market cap and the bot monitors price every 30 seconds. The moment your target is hit, it auto-sells your creator tokens to lock in gains.\n\n` +
+    `📣 *Community Shill Engine* — Your token gets automatically pushed to active Solana trading communities and listed on DEX Screener to drive early visibility, discovery, and volume.\n\n` +
+    `─────────────────\n` +
+    `Choose your launchpad to continue:`
   );
 }
 
@@ -244,10 +247,10 @@ export function creatorBuyMessage(launchpad: string, balance: number): string {
 export function targetMcapMessage(creatorBuySol: number): string {
   const buyStr = creatorBuySol > 0 ? `\`${creatorBuySol} SOL\`` : "_none_";
   return (
-    `*Auto-Sell Target*\n\n` +
+    `*🎯 Set Your Market Cap Target*\n\n` +
     `Creator buy: ${buyStr}\n\n` +
-    `At what market cap (USD) should the bot automatically sell all your creator tokens?\n\n` +
-    `_The bot monitors the market cap every 30 seconds and sells everything when the target is hit._`
+    `At what market cap should the bot auto-sell all your creator tokens?\n\n` +
+    `_The bot monitors price every 30 seconds. Once your target is hit, it sells everything instantly — no manual action needed._`
   );
 }
 
