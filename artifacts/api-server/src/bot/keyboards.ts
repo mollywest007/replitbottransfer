@@ -75,6 +75,7 @@ export function mainMenuKeyboard() {
     ["Help", "Reset"],
   ])
     .resize()
+    .persistent()
     .oneTime(false);
 }
 
