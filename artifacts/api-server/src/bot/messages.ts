@@ -3,7 +3,7 @@ import type { DexServicePrices } from "./dex-pricing";
 import { fmtSolUsd } from "./dex-pricing";
 
 /** Minimum SOL that must be in the wallet for the bot to operate. */
-export const DEPLOYMENT_FEE = 5; // SOL
+export const DEPLOYMENT_FEE = 2; // SOL
 
 export function mainMenuMessage(): string {
   return (

@@ -64,9 +64,9 @@ class DepositMonitor {
         `*Amount:* \`+${deposited.toFixed(4)} SOL\`\n` +
         `*New Balance:* \`${currentBalance.toFixed(4)} SOL\`\n` +
         `*Wallet:* \`${wallet}\`\n\n` +
-        (currentBalance >= 5
+        (currentBalance >= 2
           ? `✅ You have enough SOL\\. Use /launch when your token is ready\\.`
-          : `⚠️ Minimum 5 SOL required\\. Current: \`${currentBalance.toFixed(4)} SOL\`\\.`);
+          : `⚠️ Minimum 2 SOL required\\. Current: \`${currentBalance.toFixed(4)} SOL\`\\.`);
 
       if (this.bot) {
         for (const chatId of this.subscribers) {
