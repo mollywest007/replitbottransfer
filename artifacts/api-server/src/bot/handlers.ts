@@ -547,24 +547,15 @@ export function createBot(token: string): Telegraf<BotContext> {
     const creatorBuy = ctx.session.creatorBuyAmountSol ?? 0;
     const dexUpdateSol = ctx.session.dexUpdate ? prices.updateSol : 0;
     const dexBoostSol = ctx.session.dexBoost ? prices.boostSol : 0;
-
-    // Minimum wallet balance gate
-    if (balance < DEPLOYMENT_FEE) {
-      await ctx.replyWithMarkdown(
-        insufficientFundsMessage(balance, DEPLOYMENT_FEE, [
-          { label: "Minimum wallet balance required", sol: DEPLOYMENT_FEE },
-        ])
-      );
-      return;
-    }
-
-    // Total cost check
     const creationBuffer = launchpad === "pumpfun" ? PUMPFUN_MIN_SOL : 0.05;
-    const totalCost = creatorBuy + dexUpdateSol + dexBoostSol + creationBuffer;
+    const platformFeeSol = 50 / prices.solUsd;
+
+    const totalCost = creationBuffer + platformFeeSol + creatorBuy + dexUpdateSol + dexBoostSol;
 
     if (balance < totalCost) {
       const breakdown: { label: string; sol: number }[] = [
         { label: "Token creation + fees", sol: creationBuffer },
+        { label: "Platform fee ($50)", sol: platformFeeSol },
       ];
       if (creatorBuy > 0) breakdown.push({ label: "Creator buy", sol: creatorBuy });
       if (dexUpdateSol > 0) breakdown.push({ label: `DEX Update ($${prices.updateUsd})`, sol: dexUpdateSol });
