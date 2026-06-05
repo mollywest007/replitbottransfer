@@ -26,8 +26,8 @@ async def start_create(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     first_field = REQUIRED_FIELDS[0]
     await update.message.reply_text(
-        f"*Create Token*\n\n{REQUIRED_PROMPTS[first_field]}",
-        parse_mode="MarkdownV2",
+        f"<b>Create Token</b>\n\n{REQUIRED_PROMPTS[first_field]}",
+        parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
     )
 
@@ -41,8 +41,7 @@ async def handle_required_field(update: Update, context: ContextTypes.DEFAULT_TY
         text = text.upper().strip()
         if len(text) < 2 or len(text) > 10:
             await update.message.reply_text(
-                "Symbol must be 2–10 characters\\. Please try again\\.",
-                parse_mode="MarkdownV2",
+                "Symbol must be 2–10 characters. Please try again.",
             )
             return
 
@@ -54,7 +53,7 @@ async def handle_required_field(update: Update, context: ContextTypes.DEFAULT_TY
         next_field = REQUIRED_FIELDS[idx]
         await update.message.reply_text(
             REQUIRED_PROMPTS[next_field],
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
         )
     else:
@@ -67,8 +66,8 @@ async def _start_optional_fields(update: Update, context: ContextTypes.DEFAULT_T
     session["optional_index"] = 0
     field = OPTIONAL_FIELDS[0]
     await update.message.reply_text(
-        f"*Optional Details*\n\n{OPTIONAL_PROMPTS[field]}",
-        parse_mode="MarkdownV2",
+        f"<b>Optional Details</b>\n\n{OPTIONAL_PROMPTS[field]}",
+        parse_mode="HTML",
         reply_markup=optional_skip_keyboard(),
     )
 
@@ -98,13 +97,11 @@ async def handle_optional_photo(update: Update, context: ContextTypes.DEFAULT_TY
     except Exception as e:
         logger.warning(f"Failed to get photo file: {e}")
         await update.message.reply_text(
-            "Could not process photo\\. Please send a direct URL instead\\.",
-            parse_mode="MarkdownV2",
+            "Could not process photo. Please send a direct image URL instead.",
         )
 
 
 async def skip_optional(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    session = get_session(context)
     await _advance_optional(update, context)
 
 
@@ -117,7 +114,7 @@ async def _advance_optional(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         field = OPTIONAL_FIELDS[idx]
         await update.message.reply_text(
             OPTIONAL_PROMPTS[field],
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=optional_skip_keyboard(),
         )
     else:
@@ -129,11 +126,11 @@ async def show_authority_settings(update: Update, context: ContextTypes.DEFAULT_
     session["step"] = "authority"
     token = session["token"]
     await update.message.reply_text(
-        "*Authority Settings*\n\n"
-        "Choose which authorities to revoke at launch\\.\n"
-        "Revoking makes your token more trustworthy to buyers\\.\n\n"
-        "Tap *Done* when finished\\.",
-        parse_mode="MarkdownV2",
+        "<b>Authority Settings</b>\n\n"
+        "Choose which authorities to revoke at launch.\n"
+        "Revoking makes your token more trustworthy to buyers.\n\n"
+        "Tap <b>Done</b> when finished.",
+        parse_mode="HTML",
         reply_markup=authority_inline_keyboard(
             token.get("revoke_mint", False),
             token.get("revoke_freeze", False),

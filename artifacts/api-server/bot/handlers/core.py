@@ -12,7 +12,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     do_reset(context)
     await update.message.reply_text(
         main_menu_message(),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
     )
 
@@ -20,7 +20,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         help_message(),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
     )
 
@@ -28,8 +28,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     do_reset(context)
     await update.message.reply_text(
-        "*Session reset\\.*\n\nUse /create to start a new token\\.",
-        parse_mode="MarkdownV2",
+        "<b>Session reset.</b>\n\nUse /create to start a new token.",
+        parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
     )
 
@@ -54,8 +54,7 @@ async def cmd_launch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     token = session["token"]
     if not token.get("name") or not token.get("symbol"):
         await update.message.reply_text(
-            "No token ready\\. Use /create first\\.",
-            parse_mode="MarkdownV2",
+            "No token ready. Use /create first.",
             reply_markup=main_menu_keyboard(),
         )
         return
@@ -69,15 +68,14 @@ async def cmd_review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     token = session["token"]
     if not token.get("name") or not token.get("symbol"):
         await update.message.reply_text(
-            "No token configured yet\\. Use /create to start\\.",
-            parse_mode="MarkdownV2",
+            "No token configured yet. Use /create to start.",
             reply_markup=main_menu_keyboard(),
         )
         return
     wallet = get_wallet_address()
     await update.message.reply_text(
         review_message(token, wallet),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
     )
 
@@ -121,7 +119,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         elif text == "Help":
             await update.message.reply_text(
                 help_message(),
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
             )
 
@@ -179,15 +177,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             from bot.handlers.panel import handle_panel_transfer_amount
             await handle_panel_transfer_amount(update, context, text)
 
-        else:
-            pass
-
     except Exception as e:
         logger.error(f"Unhandled error in message handler: {e}", exc_info=True)
         try:
             await update.message.reply_text(
-                error_message("An unexpected error occurred\\. Please try again or use /reset\\."),
-                parse_mode="MarkdownV2",
+                error_message("An unexpected error occurred. Please try again or use /reset."),
+                parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
             )
         except Exception:
@@ -233,8 +228,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         elif data == "authority_done":
             from bot.handlers.launch import initiate_launch
             await query.edit_message_reply_markup(reply_markup=None)
-            class _FakeMessage:
-                pass
             update.message = query.message
             await initiate_launch(update, context)
 
@@ -246,8 +239,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         elif data == "launch_cancel":
             session["step"] = "idle"
             await query.edit_message_text(
-                "Launch cancelled\\. Use /launch to try again\\.",
-                parse_mode="MarkdownV2",
+                "Launch cancelled. Use /launch to try again.",
             )
 
         elif data.startswith("cb_buy:"):
@@ -288,8 +280,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.error(f"Callback handler error: {e}", exc_info=True)
         try:
             await query.edit_message_text(
-                error_message("An error occurred\\. Please try again or use /reset\\."),
-                parse_mode="MarkdownV2",
+                error_message("An error occurred. Please try again or use /reset."),
+                parse_mode="HTML",
             )
         except Exception:
             pass
@@ -300,8 +292,7 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
                 "panel_transfer_address", "panel_transfer_amount"):
         session["step"] = "idle"
         await update.message.reply_text(
-            "Cancelled\\.",
-            parse_mode="MarkdownV2",
+            "Cancelled.",
             reply_markup=main_menu_keyboard(),
         )
     elif step == "collecting_optional":
@@ -313,7 +304,7 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
             field = OPTIONAL_FIELDS[idx - 1]
             await update.message.reply_text(
                 OPTIONAL_PROMPTS[field],
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=optional_skip_keyboard(),
             )
         else:
@@ -322,12 +313,11 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
             from bot.session import REQUIRED_PROMPTS, REQUIRED_FIELDS
             await update.message.reply_text(
                 REQUIRED_PROMPTS[REQUIRED_FIELDS[0]],
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
             )
     else:
         await update.message.reply_text(
-            "Nothing to go back to\\.",
-            parse_mode="MarkdownV2",
+            "Nothing to go back to.",
             reply_markup=main_menu_keyboard(),
         )

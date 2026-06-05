@@ -25,17 +25,15 @@ async def initiate_launch(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if not token.get("name") or not token.get("symbol"):
         await update.message.reply_text(
-            "Please complete token creation first\\. Use /create to start\\.",
-            parse_mode="MarkdownV2",
+            "Please complete token creation first. Use /create to start.",
             reply_markup=main_menu_keyboard(),
         )
         return
 
     session["step"] = "select_launchpad"
-    msg_text = launchpad_select_message(token["name"], token["symbol"])
     await update.message.reply_text(
-        msg_text,
-        parse_mode="MarkdownV2",
+        launchpad_select_message(token["name"], token["symbol"]),
+        parse_mode="HTML",
         reply_markup=launchpad_keyboard(),
     )
 
@@ -51,7 +49,7 @@ async def handle_launchpad_selected(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     await query.edit_message_text(
         creator_buy_message(launchpad, balance),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=creator_buy_keyboard(),
     )
 
@@ -66,9 +64,8 @@ async def handle_creator_buy_selected(update: Update, context: ContextTypes.DEFA
     elif value == "custom":
         session["step"] = "creator_buy_custom"
         await query.edit_message_text(
-            "Enter the amount of SOL you want to invest as creator\\.\n\n"
-            "Example: `1.5`",
-            parse_mode="MarkdownV2",
+            "Enter the amount of SOL you want to invest as creator.\n\nExample: <code>1.5</code>",
+            parse_mode="HTML",
         )
     else:
         session["creator_buy_amount_sol"] = float(value)
@@ -83,8 +80,7 @@ async def handle_creator_buy_custom_input(update: Update, context: ContextTypes.
             raise ValueError()
     except ValueError:
         await update.message.reply_text(
-            "Invalid amount\\. Please enter a positive number like `1.5`\\.",
-            parse_mode="MarkdownV2",
+            "Invalid amount. Please enter a positive number like 1.5.",
         )
         return
 
@@ -92,7 +88,7 @@ async def handle_creator_buy_custom_input(update: Update, context: ContextTypes.
     session["step"] = "target_mcap"
     await update.message.reply_text(
         target_mcap_message(amount),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=target_mcap_keyboard(),
     )
 
@@ -103,7 +99,7 @@ async def _show_target_mcap(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     query = update.callback_query
     await query.edit_message_text(
         target_mcap_message(session.get("creator_buy_amount_sol", 0.0)),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=target_mcap_keyboard(),
     )
 
@@ -118,8 +114,8 @@ async def handle_target_mcap_selected(update: Update, context: ContextTypes.DEFA
     elif value == "custom":
         session["step"] = "target_mcap_custom"
         await query.edit_message_text(
-            "Enter your target market cap in USD\\.\n\nExample: `250000`",
-            parse_mode="MarkdownV2",
+            "Enter your target market cap in USD.\n\nExample: <code>250000</code>",
+            parse_mode="HTML",
         )
     else:
         session["target_market_cap_usd"] = float(value)
@@ -134,8 +130,7 @@ async def handle_target_mcap_custom_input(update: Update, context: ContextTypes.
             raise ValueError()
     except ValueError:
         await update.message.reply_text(
-            "Invalid amount\\. Please enter a positive number like `100000`\\.",
-            parse_mode="MarkdownV2",
+            "Invalid amount. Please enter a positive number like 100000.",
         )
         return
 
@@ -152,7 +147,7 @@ async def handle_target_mcap_custom_input(update: Update, context: ContextTypes.
             session.get("dex_update", False),
             session.get("dex_boost", False),
         ),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=dex_options_keyboard(prices, session.get("dex_update", False), session.get("dex_boost", False)),
     )
 
@@ -172,7 +167,7 @@ async def _show_dex_options(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             session.get("dex_update", False),
             session.get("dex_boost", False),
         ),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=dex_options_keyboard(prices, session.get("dex_update", False), session.get("dex_boost", False)),
     )
 
@@ -198,7 +193,6 @@ async def handle_deploy_confirm(update: Update, context: ContextTypes.DEFAULT_TY
 
     prices = await fetch_dex_prices()
     sol_usd = prices["sol_usd"]
-
     platform_sol = PLATFORM_FEE_USD / sol_usd
     dex_update_sol = prices["update_sol"] if dex_update else 0.0
     dex_boost_sol = prices["boost_sol"] if dex_boost else 0.0
@@ -211,14 +205,14 @@ async def handle_deploy_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         needed = max(total_required, DEPLOYMENT_FEE)
         await query.edit_message_text(
             insufficient_funds_message(balance, needed),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
         )
         return
 
     session["step"] = "deploying"
     await query.edit_message_text(
         deploying_message(launchpad),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
     )
 
     chat_id = update.effective_chat.id
@@ -251,7 +245,7 @@ async def handle_deploy_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                     result["view_url"], result["timestamp"],
                     creator_buy, target_mcap,
                 ),
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
             )
 
@@ -280,7 +274,7 @@ async def handle_deploy_confirm(update: Update, context: ContextTypes.DEFAULT_TY
                     result["mint_address"], result["tx_signature"],
                     result["timestamp"], target_mcap,
                 ),
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
             )
 
@@ -290,6 +284,6 @@ async def handle_deploy_confirm(update: Update, context: ContextTypes.DEFAULT_TY
         await context.bot.send_message(
             chat_id=chat_id,
             text=error_message(f"Deployment failed: {str(e)[:200]}"),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
         )

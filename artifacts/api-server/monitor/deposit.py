@@ -39,7 +39,7 @@ class DepositMonitor:
             text = deposit_notification_message(deposited, current_balance, wallet)
             for chat_id in list(self._subscribers):
                 try:
-                    await bot.send_message(chat_id=chat_id, text=text, parse_mode="MarkdownV2")
+                    await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
                 except Exception as e:
                     logger.warning(f"Deposit monitor: failed to notify {chat_id}: {e}")
 

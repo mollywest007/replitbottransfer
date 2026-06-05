@@ -106,7 +106,7 @@ class MarketCapMonitor:
                     await bot.send_message(
                         chat_id=info["chat_id"],
                         text=text,
-                        parse_mode="MarkdownV2",
+                        parse_mode="HTML",
                     )
                 except Exception as e:
                     logger.warning(f"Failed to send mcap alert to {info['chat_id']}: {e}")

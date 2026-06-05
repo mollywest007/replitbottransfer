@@ -2,17 +2,17 @@ from typing import Any
 
 REQUIRED_FIELDS = ["name", "symbol"]
 REQUIRED_PROMPTS = {
-    "name": "What is your *token name*?\n\nExample: `Solana Gold`",
-    "symbol": "What is your *token symbol*?\n\nExample: `SGOLD` \\(2–10 chars, uppercase\\)",
+    "name": "What is your <b>token name</b>?\n\nExample: <code>Solana Gold</code>",
+    "symbol": "What is your <b>token symbol</b>?\n\nExample: <code>SGOLD</code> (2–10 chars, uppercase)",
 }
 
 OPTIONAL_FIELDS = ["description", "logo_url", "website", "telegram", "twitter"]
 OPTIONAL_PROMPTS = {
-    "description": "*Token Description* \\(optional\\)\n\nSend a short description or tap *Skip*\\.",
-    "logo_url": "*Token Logo* \\(optional\\)\n\nSend an image or paste a direct image URL, or tap *Skip*\\.",
-    "website": "*Website* \\(optional\\)\n\nSend your project URL or tap *Skip*\\.",
-    "telegram": "*Telegram* \\(optional\\)\n\nSend your Telegram group/channel link or tap *Skip*\\.",
-    "twitter": "*Twitter/X* \\(optional\\)\n\nSend your Twitter handle or URL, or tap *Skip*\\.",
+    "description": "<b>Token Description</b> (optional)\n\nSend a short description or tap <b>Skip</b>.",
+    "logo_url": "<b>Token Logo</b> (optional)\n\nSend an image or paste a direct image URL, or tap <b>Skip</b>.",
+    "website": "<b>Website</b> (optional)\n\nSend your project URL or tap <b>Skip</b>.",
+    "telegram": "<b>Telegram</b> (optional)\n\nSend your Telegram group/channel link or tap <b>Skip</b>.",
+    "twitter": "<b>Twitter/X</b> (optional)\n\nSend your Twitter handle or URL, or tap <b>Skip</b>.",
 }
 
 
@@ -47,6 +47,7 @@ def default_session() -> dict[str, Any]:
         "last_symbol": None,
         "last_decimals": None,
         "pending_burn_portion": None,
+        "pending_burn_raw": 0,
         "pending_revoke_type": None,
     }
 

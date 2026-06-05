@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 from bot.session import get_session
 from bot.keyboards import (
     main_menu_keyboard, token_panel_keyboard, burn_confirm_keyboard,
-    revoke_confirm_keyboard, back_cancel_keyboard, confirm_cancel_keyboard,
+    revoke_confirm_keyboard, back_cancel_keyboard,
 )
 from bot.messages import (
     panel_message, burn_confirm_message, revoke_confirm_message, error_message,
@@ -22,8 +22,7 @@ async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     if not mint:
         await update.message.reply_text(
-            "No token deployed yet\\. Use /create and /launch first\\.",
-            parse_mode="MarkdownV2",
+            "No token deployed yet. Use /create and /launch first.",
             reply_markup=main_menu_keyboard(),
         )
         return
@@ -38,7 +37,7 @@ async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     await update.message.reply_text(
         panel_message(mint, symbol, ui_balance),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=token_panel_keyboard(mint),
     )
 
@@ -58,7 +57,7 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
             ui = bal["ui_amount"]
             await query.edit_message_text(
                 panel_message(mint, symbol, ui),
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=token_panel_keyboard(mint),
             )
         except Exception as e:
@@ -79,11 +78,10 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.answer("No tokens to burn!", show_alert=True)
                 return
 
-            session["pending_burn_portion"] = portion
             session["pending_burn_raw"] = burn_raw
             await query.edit_message_text(
                 burn_confirm_message(symbol, burn_ui, portion),
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=burn_confirm_keyboard(mint, portion),
             )
         except Exception as e:
@@ -99,17 +97,17 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
             return
         try:
             sig = await burn_tokens(mint, burn_raw)
-            short = f"{sig[:8]}..."
+            short = f"{sig[:16]}..."
             await query.edit_message_text(
-                f"*🔥 Burn Complete*\n\nTransaction: `{short}`\n\nTokens have been permanently destroyed\\.",
-                parse_mode="MarkdownV2",
+                f"<b>🔥 Burn Complete</b>\n\nTransaction: <code>{short}</code>\n\nTokens have been permanently destroyed.",
+                parse_mode="HTML",
                 reply_markup=token_panel_keyboard(mint),
             )
         except Exception as e:
             logger.error(f"Burn failed: {e}")
             await query.edit_message_text(
                 error_message(f"Burn failed: {str(e)[:200]}"),
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=token_panel_keyboard(mint),
             )
 
@@ -118,8 +116,8 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
         session["panel_transfer"] = {"mint": mint}
         session["step"] = "panel_transfer_address"
         await query.edit_message_text(
-            "*Transfer Tokens*\n\nEnter the destination wallet address:",
-            parse_mode="MarkdownV2",
+            "<b>Transfer Tokens</b>\n\nEnter the destination wallet address:",
+            parse_mode="HTML",
         )
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -131,7 +129,7 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
         mint = data.split(":", 1)[1]
         await query.edit_message_text(
             revoke_confirm_message("mint", symbol),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=revoke_confirm_keyboard(mint, "mint"),
         )
 
@@ -139,7 +137,7 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
         mint = data.split(":", 1)[1]
         await query.edit_message_text(
             revoke_confirm_message("freeze", symbol),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=revoke_confirm_keyboard(mint, "freeze"),
         )
 
@@ -153,17 +151,17 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
             else:
                 sig = await revoke_freeze_authority(mint)
             label = "Mint" if auth_type == "mint" else "Freeze"
-            short = f"{sig[:8]}..."
+            short = f"{sig[:16]}..."
             await query.edit_message_text(
-                f"*🔒 {label} Authority Revoked*\n\nTransaction: `{short}`\n\nAuthority permanently removed\\.",
-                parse_mode="MarkdownV2",
+                f"<b>🔒 {label} Authority Revoked</b>\n\nTransaction: <code>{short}</code>\n\nAuthority permanently removed.",
+                parse_mode="HTML",
                 reply_markup=token_panel_keyboard(mint),
             )
         except Exception as e:
             logger.error(f"Revoke failed: {e}")
             await query.edit_message_text(
                 error_message(f"Revoke failed: {str(e)[:200]}"),
-                parse_mode="MarkdownV2",
+                parse_mode="HTML",
                 reply_markup=token_panel_keyboard(mint),
             )
 
@@ -177,7 +175,7 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
             ui = 0.0
         await query.edit_message_text(
             panel_message(mint, symbol, ui),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=token_panel_keyboard(mint),
         )
 
@@ -187,15 +185,14 @@ async def handle_panel_transfer_address(update: Update, context: ContextTypes.DE
     address = text.strip()
     if len(address) < 32 or len(address) > 44:
         await update.message.reply_text(
-            "Invalid Solana address\\. Please try again\\.",
-            parse_mode="MarkdownV2",
+            "Invalid Solana address. Please try again.",
         )
         return
     session["panel_transfer"]["to"] = address
     session["step"] = "panel_transfer_amount"
     await update.message.reply_text(
-        "*Transfer Amount*\n\nHow many tokens to send? Enter amount or `all`:",
-        parse_mode="MarkdownV2",
+        "<b>Transfer Amount</b>\n\nHow many tokens to send? Enter amount or type <code>all</code>:",
+        parse_mode="HTML",
         reply_markup=back_cancel_keyboard(),
     )
 
@@ -214,7 +211,7 @@ async def handle_panel_transfer_amount(update: Update, context: ContextTypes.DEF
     except Exception as e:
         await update.message.reply_text(
             error_message(f"Could not fetch balance: {e}"),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
         )
         session["step"] = "idle"
@@ -228,35 +225,33 @@ async def handle_panel_transfer_amount(update: Update, context: ContextTypes.DEF
             send_raw = int(amount_ui * (10 ** decimals))
         except ValueError:
             await update.message.reply_text(
-                "Invalid amount\\. Enter a number or `all`\\.",
-                parse_mode="MarkdownV2",
+                "Invalid amount. Enter a number or 'all'.",
             )
             return
 
     if send_raw == 0 or send_raw > raw_amount:
         await update.message.reply_text(
-            "Amount exceeds balance or is zero\\.",
-            parse_mode="MarkdownV2",
+            "Amount exceeds balance or is zero.",
         )
         return
 
     session["step"] = "idle"
     await update.message.reply_text(
-        f"Transferring `{send_raw / (10 ** decimals):,.4f} {symbol}` to `{to_address}`\\.\\.\\.",
-        parse_mode="MarkdownV2",
+        f"Transferring <code>{send_raw / (10 ** decimals):,.4f} {symbol}</code> to <code>{to_address}</code>...",
+        parse_mode="HTML",
     )
     try:
         sig = await transfer_spl_tokens(mint, to_address, send_raw)
-        short = f"{sig[:8]}..."
+        short = f"{sig[:16]}..."
         await update.message.reply_text(
-            f"*✅ Transfer Complete*\n\nTransaction: `{short}`",
-            parse_mode="MarkdownV2",
+            f"<b>✅ Transfer Complete</b>\n\nTransaction: <code>{short}</code>",
+            parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
         )
     except Exception as e:
         logger.error(f"Transfer failed: {e}")
         await update.message.reply_text(
             error_message(f"Transfer failed: {str(e)[:200]}"),
-            parse_mode="MarkdownV2",
+            parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
         )
