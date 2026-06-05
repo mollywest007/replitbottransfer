@@ -1,1 +1,1 @@
-- [esbuild keepNames fix](esbuild-keep-names.md) — keepNames:true required in build.mjs; without it abort-controller's AbortSignal is renamed to AbortSignal2 and Telegraf crashes.
+- [Python rewrite architecture](python-rewrite.md) — bot fully rewritten in Python/python-telegram-bot; all TS/esbuild notes are obsolete.
