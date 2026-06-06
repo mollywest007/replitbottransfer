@@ -2,11 +2,12 @@
 from telegram import Update, CallbackQuery
 from telegram.ext import ContextTypes
 from bot.session import get_session
-from bot.keyboards import main_menu_keyboard, back_cancel_keyboard, confirm_cancel_keyboard
+from bot.keyboards import main_menu_keyboard, back_cancel_keyboard, confirm_cancel_keyboard, wallet_refresh_keyboard
 from bot.messages import (
     wallet_message, withdraw_review_message, withdraw_success_message, error_message,
 )
 from solana_client.wallet import get_wallet_address, get_wallet_balance, withdraw_sol
+from monitor.deposit import deposit_monitor
 from config import PRIVATE_KEY
 from utils.logger import logger
 
@@ -31,10 +32,13 @@ async def show_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         logger.warning(f"Could not fetch wallet balance: {e}")
         balance = 0.0
 
+    chat_id = update.effective_chat.id
+    deposit_monitor.subscribe(chat_id)
+
     await update.effective_message.reply_text(
         _build_wallet_text(wallet, balance),
         parse_mode="HTML",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=wallet_refresh_keyboard(),
     )
 
 
@@ -55,6 +59,7 @@ async def show_wallet_reply(query: CallbackQuery) -> None:
         await query.edit_message_text(
             _build_wallet_text(wallet, balance),
             parse_mode="HTML",
+            reply_markup=wallet_refresh_keyboard(),
         )
     except Exception:
         await query.answer(f"Balance: {balance:.4f} SOL", show_alert=True)
