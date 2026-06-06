@@ -20,18 +20,19 @@ from utils.logger import logger
 
 
 async def initiate_launch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Entry point — shows launchpad picker (called from cmd_launch or authority_done)."""
     session = get_session(context)
     token = session["token"]
 
     if not token.get("name") or not token.get("symbol"):
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Please complete token creation first. Use /create to start.",
             reply_markup=main_menu_keyboard(),
         )
         return
 
     session["step"] = "select_launchpad"
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         launchpad_select_message(token["name"], token["symbol"]),
         parse_mode="HTML",
         reply_markup=launchpad_keyboard(),
@@ -44,7 +45,10 @@ async def handle_launchpad_selected(update: Update, context: ContextTypes.DEFAUL
     session["step"] = "creator_buy"
 
     wallet = get_wallet_address()
-    balance = await get_wallet_balance(wallet)
+    try:
+        balance = await get_wallet_balance(wallet)
+    except Exception:
+        balance = 0.0
 
     query = update.callback_query
     await query.edit_message_text(
@@ -79,14 +83,14 @@ async def handle_creator_buy_custom_input(update: Update, context: ContextTypes.
         if amount < 0:
             raise ValueError()
     except ValueError:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Invalid amount. Please enter a positive number like 1.5.",
         )
         return
 
     session["creator_buy_amount_sol"] = amount
     session["step"] = "target_mcap"
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         target_mcap_message(amount),
         parse_mode="HTML",
         reply_markup=target_mcap_keyboard(),
@@ -129,7 +133,7 @@ async def handle_target_mcap_custom_input(update: Update, context: ContextTypes.
         if amount < 0:
             raise ValueError()
     except ValueError:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Invalid amount. Please enter a positive number like 100000.",
         )
         return
@@ -138,8 +142,11 @@ async def handle_target_mcap_custom_input(update: Update, context: ContextTypes.
     session["step"] = "dex_options"
     prices = await fetch_dex_prices()
     wallet = get_wallet_address()
-    balance = await get_wallet_balance(wallet)
-    await update.message.reply_text(
+    try:
+        balance = await get_wallet_balance(wallet)
+    except Exception:
+        balance = 0.0
+    await update.effective_message.reply_text(
         dex_options_message(
             prices, balance,
             session.get("creator_buy_amount_sol", 0.0),
@@ -148,7 +155,11 @@ async def handle_target_mcap_custom_input(update: Update, context: ContextTypes.
             session.get("dex_boost", False),
         ),
         parse_mode="HTML",
-        reply_markup=dex_options_keyboard(prices, session.get("dex_update", False), session.get("dex_boost", False)),
+        reply_markup=dex_options_keyboard(
+            prices,
+            session.get("dex_update", False),
+            session.get("dex_boost", False),
+        ),
     )
 
 
@@ -157,7 +168,10 @@ async def _show_dex_options(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     session["step"] = "dex_options"
     prices = await fetch_dex_prices()
     wallet = get_wallet_address()
-    balance = await get_wallet_balance(wallet)
+    try:
+        balance = await get_wallet_balance(wallet)
+    except Exception:
+        balance = 0.0
     query = update.callback_query
     await query.edit_message_text(
         dex_options_message(
@@ -168,7 +182,11 @@ async def _show_dex_options(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             session.get("dex_boost", False),
         ),
         parse_mode="HTML",
-        reply_markup=dex_options_keyboard(prices, session.get("dex_update", False), session.get("dex_boost", False)),
+        reply_markup=dex_options_keyboard(
+            prices,
+            session.get("dex_update", False),
+            session.get("dex_boost", False),
+        ),
     )
 
 
@@ -199,7 +217,10 @@ async def handle_deploy_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     total_required = CREATION_BUFFER_SOL + platform_sol + creator_buy + dex_update_sol + dex_boost_sol
 
     wallet = get_wallet_address()
-    balance = await get_wallet_balance(wallet)
+    try:
+        balance = await get_wallet_balance(wallet)
+    except Exception:
+        balance = 0.0
 
     if balance < max(total_required, DEPLOYMENT_FEE):
         needed = max(total_required, DEPLOYMENT_FEE)
@@ -279,7 +300,7 @@ async def handle_deploy_confirm(update: Update, context: ContextTypes.DEFAULT_TY
             )
 
     except Exception as e:
-        logger.error(f"Deployment failed: {e}")
+        logger.error(f"Deployment failed: {e}", exc_info=True)
         session["step"] = "idle"
         await context.bot.send_message(
             chat_id=chat_id,

@@ -25,7 +25,7 @@ async def start_create(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     session["token"]["revoke_freeze"] = False
 
     first_field = REQUIRED_FIELDS[0]
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"<b>Create Token</b>\n\n{REQUIRED_PROMPTS[first_field]}",
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
@@ -40,7 +40,7 @@ async def handle_required_field(update: Update, context: ContextTypes.DEFAULT_TY
     if field == "symbol":
         text = text.upper().strip()
         if len(text) < 2 or len(text) > 10:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "Symbol must be 2–10 characters. Please try again.",
             )
             return
@@ -51,7 +51,7 @@ async def handle_required_field(update: Update, context: ContextTypes.DEFAULT_TY
 
     if idx < len(REQUIRED_FIELDS):
         next_field = REQUIRED_FIELDS[idx]
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             REQUIRED_PROMPTS[next_field],
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
@@ -65,7 +65,7 @@ async def _start_optional_fields(update: Update, context: ContextTypes.DEFAULT_T
     session["step"] = "collecting_optional"
     session["optional_index"] = 0
     field = OPTIONAL_FIELDS[0]
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"<b>Optional Details</b>\n\n{OPTIONAL_PROMPTS[field]}",
         parse_mode="HTML",
         reply_markup=optional_skip_keyboard(),
@@ -96,7 +96,7 @@ async def handle_optional_photo(update: Update, context: ContextTypes.DEFAULT_TY
         await _advance_optional(update, context)
     except Exception as e:
         logger.warning(f"Failed to get photo file: {e}")
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Could not process photo. Please send a direct image URL instead.",
         )
 
@@ -112,7 +112,7 @@ async def _advance_optional(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     if idx < len(OPTIONAL_FIELDS):
         field = OPTIONAL_FIELDS[idx]
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             OPTIONAL_PROMPTS[field],
             parse_mode="HTML",
             reply_markup=optional_skip_keyboard(),
@@ -125,7 +125,7 @@ async def show_authority_settings(update: Update, context: ContextTypes.DEFAULT_
     session = get_session(context)
     session["step"] = "authority"
     token = session["token"]
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         "<b>Authority Settings</b>\n\n"
         "Choose which authorities to revoke at launch.\n"
         "Revoking makes your token more trustworthy to buyers.\n\n"

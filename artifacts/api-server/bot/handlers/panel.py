@@ -10,8 +10,10 @@ from bot.messages import (
     panel_message, burn_confirm_message, revoke_confirm_message, error_message,
 )
 from solana_client.wallet import get_wallet_address
-from solana_client.token import get_token_balance, burn_tokens, transfer_spl_tokens
-from solana_client.token import revoke_mint_authority, revoke_freeze_authority
+from solana_client.token import (
+    get_token_balance, burn_tokens, transfer_spl_tokens,
+    revoke_mint_authority, revoke_freeze_authority,
+)
 from utils.logger import logger
 
 
@@ -21,7 +23,7 @@ async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     symbol = session.get("last_symbol", "TOKEN")
 
     if not mint:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "No token deployed yet. Use /create and /launch first.",
             reply_markup=main_menu_keyboard(),
         )
@@ -35,7 +37,7 @@ async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         logger.warning(f"Could not fetch token balance: {e}")
         ui_balance = 0.0
 
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         panel_message(mint, symbol, ui_balance),
         parse_mode="HTML",
         reply_markup=token_panel_keyboard(mint),
@@ -61,7 +63,7 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 reply_markup=token_panel_keyboard(mint),
             )
         except Exception as e:
-            await query.answer(f"Error: {e}", show_alert=True)
+            await query.answer(f"Error fetching balance: {e}", show_alert=True)
 
     elif data.startswith("panel_burn_half:") or data.startswith("panel_burn_all:"):
         portion = "half" if data.startswith("panel_burn_half:") else "all"
@@ -72,7 +74,7 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
             raw = bal["raw_amount"]
             ui = bal["ui_amount"]
             burn_raw = raw // 2 if portion == "half" else raw
-            burn_ui = ui / 2 if portion == "half" else ui
+            burn_ui = ui / 2.0 if portion == "half" else ui
 
             if burn_raw == 0:
                 await query.answer("No tokens to burn!", show_alert=True)
@@ -98,13 +100,16 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
         try:
             sig = await burn_tokens(mint, burn_raw)
             short = f"{sig[:16]}..."
+            session["pending_burn_raw"] = 0
             await query.edit_message_text(
-                f"<b>🔥 Burn Complete</b>\n\nTransaction: <code>{short}</code>\n\nTokens have been permanently destroyed.",
+                f"<b>🔥 Burn Complete</b>\n\n"
+                f"Transaction: <code>{short}</code>\n\n"
+                f"Tokens have been permanently destroyed.",
                 parse_mode="HTML",
                 reply_markup=token_panel_keyboard(mint),
             )
         except Exception as e:
-            logger.error(f"Burn failed: {e}")
+            logger.error(f"Burn failed: {e}", exc_info=True)
             await query.edit_message_text(
                 error_message(f"Burn failed: {str(e)[:200]}"),
                 parse_mode="HTML",
@@ -116,12 +121,12 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
         session["panel_transfer"] = {"mint": mint}
         session["step"] = "panel_transfer_address"
         await query.edit_message_text(
-            "<b>Transfer Tokens</b>\n\nEnter the destination wallet address:",
+            "<b>Transfer Tokens</b>\n\nSend the destination wallet address in chat:",
             parse_mode="HTML",
         )
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Send the destination wallet address:",
+            text="Enter the destination wallet address:",
             reply_markup=back_cancel_keyboard(),
         )
 
@@ -153,12 +158,14 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
             label = "Mint" if auth_type == "mint" else "Freeze"
             short = f"{sig[:16]}..."
             await query.edit_message_text(
-                f"<b>🔒 {label} Authority Revoked</b>\n\nTransaction: <code>{short}</code>\n\nAuthority permanently removed.",
+                f"<b>🔒 {label} Authority Revoked</b>\n\n"
+                f"Transaction: <code>{short}</code>\n\n"
+                f"Authority permanently removed.",
                 parse_mode="HTML",
                 reply_markup=token_panel_keyboard(mint),
             )
         except Exception as e:
-            logger.error(f"Revoke failed: {e}")
+            logger.error(f"Revoke failed: {e}", exc_info=True)
             await query.edit_message_text(
                 error_message(f"Revoke failed: {str(e)[:200]}"),
                 parse_mode="HTML",
@@ -179,19 +186,22 @@ async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=token_panel_keyboard(mint),
         )
 
+    else:
+        await query.answer("Unknown action.", show_alert=True)
+
 
 async def handle_panel_transfer_address(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
     session = get_session(context)
     address = text.strip()
     if len(address) < 32 or len(address) > 44:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Invalid Solana address. Please try again.",
         )
         return
     session["panel_transfer"]["to"] = address
     session["step"] = "panel_transfer_amount"
-    await update.message.reply_text(
-        "<b>Transfer Amount</b>\n\nHow many tokens to send? Enter amount or type <code>all</code>:",
+    await update.effective_message.reply_text(
+        "<b>Transfer Amount</b>\n\nHow many tokens to send? Enter a number or type <code>all</code>:",
         parse_mode="HTML",
         reply_markup=back_cancel_keyboard(),
     )
@@ -209,7 +219,7 @@ async def handle_panel_transfer_amount(update: Update, context: ContextTypes.DEF
         raw_amount = bal["raw_amount"]
         decimals = bal["decimals"]
     except Exception as e:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             error_message(f"Could not fetch balance: {e}"),
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
@@ -224,33 +234,34 @@ async def handle_panel_transfer_amount(update: Update, context: ContextTypes.DEF
             amount_ui = float(text.strip())
             send_raw = int(amount_ui * (10 ** decimals))
         except ValueError:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "Invalid amount. Enter a number or 'all'.",
             )
             return
 
     if send_raw == 0 or send_raw > raw_amount:
-        await update.message.reply_text(
-            "Amount exceeds balance or is zero.",
+        await update.effective_message.reply_text(
+            "Amount exceeds your balance or is zero. Please try again.",
         )
         return
 
     session["step"] = "idle"
-    await update.message.reply_text(
-        f"Transferring <code>{send_raw / (10 ** decimals):,.4f} {symbol}</code> to <code>{to_address}</code>...",
+    ui_display = send_raw / (10 ** decimals)
+    await update.effective_message.reply_text(
+        f"Transferring <code>{ui_display:,.4f} {symbol}</code>...",
         parse_mode="HTML",
     )
     try:
         sig = await transfer_spl_tokens(mint, to_address, send_raw)
         short = f"{sig[:16]}..."
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             f"<b>✅ Transfer Complete</b>\n\nTransaction: <code>{short}</code>",
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(),
         )
     except Exception as e:
-        logger.error(f"Transfer failed: {e}")
-        await update.message.reply_text(
+        logger.error(f"Transfer failed: {e}", exc_info=True)
+        await update.effective_message.reply_text(
             error_message(f"Transfer failed: {str(e)[:200]}"),
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(),

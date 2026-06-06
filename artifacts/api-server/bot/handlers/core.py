@@ -10,7 +10,7 @@ from utils.logger import logger
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     do_reset(context)
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         main_menu_message(),
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
@@ -18,7 +18,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         help_message(),
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
@@ -27,7 +27,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     do_reset(context)
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         "<b>Session reset.</b>\n\nUse /create to start a new token.",
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
@@ -53,7 +53,7 @@ async def cmd_launch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     session = get_session(context)
     token = session["token"]
     if not token.get("name") or not token.get("symbol"):
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "No token ready. Use /create first.",
             reply_markup=main_menu_keyboard(),
         )
@@ -67,13 +67,13 @@ async def cmd_review(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     session = get_session(context)
     token = session["token"]
     if not token.get("name") or not token.get("symbol"):
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "No token configured yet. Use /create to start.",
             reply_markup=main_menu_keyboard(),
         )
         return
     wallet = get_wallet_address()
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         review_message(token, wallet),
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
@@ -117,7 +117,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await show_panel(update, context)
 
         elif text == "Help":
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 help_message(),
                 parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
@@ -180,7 +180,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except Exception as e:
         logger.error(f"Unhandled error in message handler: {e}", exc_info=True)
         try:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 error_message("An unexpected error occurred. Please try again or use /reset."),
                 parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
@@ -227,9 +227,15 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         elif data == "authority_done":
             from bot.handlers.launch import initiate_launch
-            await query.edit_message_reply_markup(reply_markup=None)
-            update.message = query.message
-            await initiate_launch(update, context)
+            from bot.keyboards import launchpad_keyboard
+            from bot.messages import launchpad_select_message
+            session["step"] = "select_launchpad"
+            token = session["token"]
+            await query.edit_message_text(
+                launchpad_select_message(token["name"], token["symbol"]),
+                parse_mode="HTML",
+                reply_markup=launchpad_keyboard(),
+            )
 
         elif data in ("launch_pumpfun", "launch_raydium"):
             launchpad = "pumpfun" if data == "launch_pumpfun" else "raydium"
@@ -238,9 +244,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         elif data == "launch_cancel":
             session["step"] = "idle"
-            await query.edit_message_text(
-                "Launch cancelled. Use /launch to try again.",
-            )
+            await query.edit_message_text("Launch cancelled. Use /launch to try again.")
 
         elif data.startswith("cb_buy:"):
             value = data.split(":", 1)[1]
@@ -265,9 +269,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await handle_deploy_confirm(update, context)
 
         elif data == "wallet_refresh":
-            from bot.handlers.wallet_handler import show_wallet
-            update.message = query.message
-            await show_wallet(update, context)
+            from bot.handlers.wallet_handler import show_wallet_reply
+            await show_wallet_reply(query)
 
         elif data.startswith("panel_"):
             from bot.handlers.panel import handle_panel_callback
@@ -291,7 +294,7 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
     if step in ("withdraw_address", "withdraw_amount", "withdraw_confirm",
                 "panel_transfer_address", "panel_transfer_amount"):
         session["step"] = "idle"
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Cancelled.",
             reply_markup=main_menu_keyboard(),
         )
@@ -302,7 +305,7 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
             from bot.session import OPTIONAL_FIELDS, OPTIONAL_PROMPTS
             from bot.keyboards import optional_skip_keyboard
             field = OPTIONAL_FIELDS[idx - 1]
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 OPTIONAL_PROMPTS[field],
                 parse_mode="HTML",
                 reply_markup=optional_skip_keyboard(),
@@ -311,13 +314,13 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
             session["step"] = "collecting_required"
             session["required_index"] = 0
             from bot.session import REQUIRED_PROMPTS, REQUIRED_FIELDS
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 REQUIRED_PROMPTS[REQUIRED_FIELDS[0]],
                 parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
             )
     else:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             "Nothing to go back to.",
             reply_markup=main_menu_keyboard(),
         )
