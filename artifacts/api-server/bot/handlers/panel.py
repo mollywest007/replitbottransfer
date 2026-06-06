@@ -46,7 +46,6 @@ async def show_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def handle_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await query.answer()
     data = query.data
     session = get_session(context)
     symbol = session.get("last_symbol", "TOKEN")
