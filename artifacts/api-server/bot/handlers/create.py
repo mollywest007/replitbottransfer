@@ -5,7 +5,7 @@ from bot.session import (
     get_session, REQUIRED_FIELDS, REQUIRED_PROMPTS,
     OPTIONAL_FIELDS, OPTIONAL_PROMPTS,
 )
-from bot.keyboards import main_menu_keyboard, optional_skip_keyboard, authority_inline_keyboard
+from bot.keyboards import main_menu_keyboard, back_cancel_keyboard, optional_skip_keyboard, authority_inline_keyboard
 from utils.logger import logger
 
 
@@ -28,7 +28,7 @@ async def start_create(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.effective_message.reply_text(
         f"<b>Create Token</b>\n\n{REQUIRED_PROMPTS[first_field]}",
         parse_mode="HTML",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=back_cancel_keyboard(),
     )
 
 
@@ -54,7 +54,7 @@ async def handle_required_field(update: Update, context: ContextTypes.DEFAULT_TY
         await update.effective_message.reply_text(
             REQUIRED_PROMPTS[next_field],
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard(),
+            reply_markup=back_cancel_keyboard(),
         )
     else:
         await _start_optional_fields(update, context)

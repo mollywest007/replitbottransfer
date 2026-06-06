@@ -415,7 +415,7 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
             await msg.reply_text(
                 REQUIRED_PROMPTS[field],
                 parse_mode="HTML",
-                reply_markup=main_menu_keyboard(),
+                reply_markup=back_cancel_keyboard(),
             )
         else:
             session["step"] = "idle"
