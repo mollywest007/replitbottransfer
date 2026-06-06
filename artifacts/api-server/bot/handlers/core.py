@@ -275,6 +275,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             from bot.handlers.wallet_handler import handle_generate_wallet
             await handle_generate_wallet(update, context)
 
+        elif data == "back_to_home":
+            session["step"] = "idle"
+            await query.edit_message_reply_markup(reply_markup=None)
+            await update.effective_message.reply_text(
+                "🏠 Main Menu",
+                reply_markup=main_menu_keyboard(),
+            )
+
         # ── Back navigation (inline buttons) ──────────────────────────────
         elif data == "back_to_optionals":
             from bot.session import OPTIONAL_FIELDS, OPTIONAL_PROMPTS
@@ -472,7 +480,8 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
         )
 
     else:
+        session["step"] = "idle"
         await msg.reply_text(
-            "Nothing to go back to. Use the menu buttons or /reset.",
+            "🏠 Main Menu",
             reply_markup=main_menu_keyboard(),
         )
