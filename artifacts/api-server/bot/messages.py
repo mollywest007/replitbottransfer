@@ -33,17 +33,23 @@ def no_wallet_message() -> str:
 
 def wallet_message(address: str, balance: float, private_key: str | None = None) -> str:
     pk_section = (
-        f"\n<b>Private Key</b>\n<code>{h(private_key)}</code>\n"
-        f"<i>Save this — it will not be shown again after you close this screen.</i>\n"
+        f"\n\n"
+        f"─────────────────────\n"
+        f"<b>Private Key</b>\n"
+        f"<code>{h(private_key)}</code>\n\n"
+        f"<i>Save this — it will not be shown again after you close this screen.</i>"
     ) if private_key else ""
     return (
         f"<b>Deployment Wallet</b>\n\n"
         f"<b>Wallet Address</b>\n"
         f"<code>{h(address)}</code>\n\n"
-        f"<b>Balance</b>\n<code>{balance:.4f} SOL</code>\n\n"
-        f"<b>Minimum Required</b>\n<code>{DEPLOYMENT_FEE} SOL</code>"
-        f"{pk_section}\n"
-        f"<b>Network</b>\nSolana Mainnet"
+        f"<b>Balance</b>\n"
+        f"<code>{balance:.4f} SOL</code>\n\n"
+        f"<b>Minimum Required</b>\n"
+        f"<code>{DEPLOYMENT_FEE} SOL</code>\n\n"
+        f"<b>Network</b>\n"
+        f"Solana Mainnet"
+        f"{pk_section}"
     )
 
 
