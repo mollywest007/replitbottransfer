@@ -2,9 +2,9 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from bot.session import get_session, reset_session as do_reset
-from bot.keyboards import main_menu_keyboard
+from bot.keyboards import main_menu_keyboard, back_cancel_keyboard, optional_skip_keyboard
 from bot.messages import main_menu_message, help_message, review_message, error_message
-from solana_client.wallet import get_wallet_address
+from solana_client.wallet import get_wallet_address, get_wallet_balance
 from utils.logger import logger
 
 
@@ -226,7 +226,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             )
 
         elif data == "authority_done":
-            from bot.handlers.launch import initiate_launch
             from bot.keyboards import launchpad_keyboard
             from bot.messages import launchpad_select_message
             session["step"] = "select_launchpad"
@@ -272,6 +271,72 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             from bot.handlers.wallet_handler import show_wallet_reply
             await show_wallet_reply(query)
 
+        # ── Back navigation (inline buttons) ──────────────────────────────
+        elif data == "back_to_optionals":
+            from bot.session import OPTIONAL_FIELDS, OPTIONAL_PROMPTS
+            session["step"] = "collecting_optional"
+            session["optional_index"] = len(OPTIONAL_FIELDS) - 1
+            last_field = OPTIONAL_FIELDS[-1]
+            await query.edit_message_reply_markup(reply_markup=None)
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=OPTIONAL_PROMPTS[last_field],
+                parse_mode="HTML",
+                reply_markup=optional_skip_keyboard(),
+            )
+
+        elif data == "back_to_authority":
+            from bot.keyboards import authority_inline_keyboard
+            session["step"] = "authority"
+            token = session["token"]
+            await query.edit_message_text(
+                "<b>Authority Settings</b>\n\n"
+                "Choose which authorities to revoke at launch.\n"
+                "Revoking makes your token more trustworthy to buyers.\n\n"
+                "Tap <b>Done</b> when finished.",
+                parse_mode="HTML",
+                reply_markup=authority_inline_keyboard(
+                    token.get("revoke_mint", False),
+                    token.get("revoke_freeze", False),
+                ),
+            )
+
+        elif data == "back_to_launchpad":
+            from bot.keyboards import launchpad_keyboard
+            from bot.messages import launchpad_select_message
+            session["step"] = "select_launchpad"
+            token = session["token"]
+            await query.edit_message_text(
+                launchpad_select_message(token["name"], token["symbol"]),
+                parse_mode="HTML",
+                reply_markup=launchpad_keyboard(),
+            )
+
+        elif data == "back_to_creator_buy":
+            from bot.keyboards import creator_buy_keyboard
+            from bot.messages import creator_buy_message
+            session["step"] = "creator_buy"
+            wallet = get_wallet_address()
+            try:
+                balance = await get_wallet_balance(wallet)
+            except Exception:
+                balance = 0.0
+            await query.edit_message_text(
+                creator_buy_message(session.get("launchpad", "pumpfun"), balance),
+                parse_mode="HTML",
+                reply_markup=creator_buy_keyboard(),
+            )
+
+        elif data == "back_to_target_mcap":
+            from bot.keyboards import target_mcap_keyboard
+            from bot.messages import target_mcap_message
+            session["step"] = "target_mcap"
+            await query.edit_message_text(
+                target_mcap_message(session.get("creator_buy_amount_sol", 0.0)),
+                parse_mode="HTML",
+                reply_markup=target_mcap_keyboard(),
+            )
+
         elif data.startswith("panel_"):
             from bot.handlers.panel import handle_panel_callback
             await handle_panel_callback(update, context)
@@ -291,36 +356,119 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, session: dict, step: str) -> None:
-    if step in ("withdraw_address", "withdraw_amount", "withdraw_confirm",
-                "panel_transfer_address", "panel_transfer_amount"):
-        session["step"] = "idle"
-        await update.effective_message.reply_text(
-            "Cancelled.",
-            reply_markup=main_menu_keyboard(),
+    """Handle the ◀ Back reply-keyboard button for text-based flows."""
+    msg = update.effective_message
+
+    # ── Withdraw flow ──────────────────────────────────────────────────────
+    if step == "withdraw_confirm":
+        session["step"] = "withdraw_amount"
+        wallet = get_wallet_address()
+        try:
+            balance = await get_wallet_balance(wallet)
+        except Exception:
+            balance = 0.0
+        await msg.reply_text(
+            f"<b>Withdrawal Amount</b>\n\n"
+            f"Wallet balance: <code>{balance:.4f} SOL</code>\n\n"
+            f"How much SOL do you want to withdraw?",
+            parse_mode="HTML",
+            reply_markup=back_cancel_keyboard(),
         )
+
+    elif step == "withdraw_amount":
+        session["step"] = "withdraw_address"
+        session["withdraw"] = {}
+        await msg.reply_text(
+            "<b>Withdraw SOL</b>\n\nEnter the destination wallet address:",
+            parse_mode="HTML",
+            reply_markup=back_cancel_keyboard(),
+        )
+
+    elif step == "withdraw_address":
+        session["step"] = "idle"
+        await msg.reply_text("Withdrawal cancelled.", reply_markup=main_menu_keyboard())
+
+    # ── Panel transfer flow ────────────────────────────────────────────────
+    elif step == "panel_transfer_amount":
+        session["step"] = "panel_transfer_address"
+        await msg.reply_text(
+            "<b>Transfer Tokens</b>\n\nEnter the destination wallet address:",
+            parse_mode="HTML",
+            reply_markup=back_cancel_keyboard(),
+        )
+
+    elif step == "panel_transfer_address":
+        session["step"] = "idle"
+        await msg.reply_text("Transfer cancelled.", reply_markup=main_menu_keyboard())
+
+    # ── Token creation — required fields ──────────────────────────────────
+    elif step == "collecting_required":
+        from bot.session import REQUIRED_FIELDS, REQUIRED_PROMPTS
+        idx = session.get("required_index", 0)
+        if idx > 0:
+            session["required_index"] = idx - 1
+            field = REQUIRED_FIELDS[idx - 1]
+            await msg.reply_text(
+                REQUIRED_PROMPTS[field],
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard(),
+            )
+        else:
+            session["step"] = "idle"
+            await msg.reply_text("Token creation cancelled.", reply_markup=main_menu_keyboard())
+
+    # ── Token creation — optional fields ──────────────────────────────────
     elif step == "collecting_optional":
+        from bot.session import OPTIONAL_FIELDS, OPTIONAL_PROMPTS, REQUIRED_FIELDS, REQUIRED_PROMPTS
         idx = session.get("optional_index", 0)
         if idx > 0:
             session["optional_index"] = idx - 1
-            from bot.session import OPTIONAL_FIELDS, OPTIONAL_PROMPTS
-            from bot.keyboards import optional_skip_keyboard
             field = OPTIONAL_FIELDS[idx - 1]
-            await update.effective_message.reply_text(
+            await msg.reply_text(
                 OPTIONAL_PROMPTS[field],
                 parse_mode="HTML",
                 reply_markup=optional_skip_keyboard(),
             )
         else:
+            # Back to the last required field
             session["step"] = "collecting_required"
-            session["required_index"] = 0
-            from bot.session import REQUIRED_PROMPTS, REQUIRED_FIELDS
-            await update.effective_message.reply_text(
-                REQUIRED_PROMPTS[REQUIRED_FIELDS[0]],
+            last_idx = len(REQUIRED_FIELDS) - 1
+            session["required_index"] = last_idx
+            field = REQUIRED_FIELDS[last_idx]
+            await msg.reply_text(
+                REQUIRED_PROMPTS[field],
                 parse_mode="HTML",
                 reply_markup=main_menu_keyboard(),
             )
+
+    # ── Launch flow — custom text-input steps ─────────────────────────────
+    elif step == "creator_buy_custom":
+        from bot.keyboards import creator_buy_keyboard
+        from bot.messages import creator_buy_message
+        session["step"] = "creator_buy"
+        wallet = get_wallet_address()
+        try:
+            balance = await get_wallet_balance(wallet)
+        except Exception:
+            balance = 0.0
+        await msg.reply_text(
+            creator_buy_message(session.get("launchpad", "pumpfun"), balance),
+            parse_mode="HTML",
+            reply_markup=creator_buy_keyboard(),
+        )
+
+    elif step == "target_mcap_custom":
+        from bot.keyboards import target_mcap_keyboard
+        from bot.messages import target_mcap_message
+        session["step"] = "target_mcap"
+        await msg.reply_text(
+            target_mcap_message(session.get("creator_buy_amount_sol", 0.0)),
+            parse_mode="HTML",
+            reply_markup=target_mcap_keyboard(),
+        )
+
     else:
-        await update.effective_message.reply_text(
-            "Nothing to go back to.",
+        await msg.reply_text(
+            "Nothing to go back to. Use the menu buttons or /reset.",
             reply_markup=main_menu_keyboard(),
         )

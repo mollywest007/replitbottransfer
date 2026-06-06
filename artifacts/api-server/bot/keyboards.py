@@ -50,6 +50,7 @@ def authority_inline_keyboard(revoke_mint: bool, revoke_freeze: bool) -> InlineK
             callback_data="toggle_freeze",
         )],
         [InlineKeyboardButton("Done ✓ Proceed to Launch", callback_data="authority_done")],
+        [InlineKeyboardButton("◀ Back", callback_data="back_to_optionals")],
     ])
 
 
@@ -57,6 +58,7 @@ def launchpad_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🟣 Pump.fun", callback_data="launch_pumpfun")],
         [InlineKeyboardButton("🔵 Raydium", callback_data="launch_raydium")],
+        [InlineKeyboardButton("◀ Back", callback_data="back_to_authority")],
         [InlineKeyboardButton("❌ Cancel", callback_data="launch_cancel")],
     ])
 
@@ -73,6 +75,7 @@ def creator_buy_keyboard() -> InlineKeyboardMarkup:
         ],
         [InlineKeyboardButton("✏️ Custom amount", callback_data="cb_buy:custom")],
         [InlineKeyboardButton("⏭ Skip (no buy)", callback_data="cb_buy:skip")],
+        [InlineKeyboardButton("◀ Back", callback_data="back_to_launchpad")],
         [InlineKeyboardButton("❌ Cancel", callback_data="launch_cancel")],
     ])
 
@@ -89,6 +92,7 @@ def target_mcap_keyboard() -> InlineKeyboardMarkup:
         ],
         [InlineKeyboardButton("✏️ Custom target", callback_data="cb_mcap:custom")],
         [InlineKeyboardButton("⏭ No auto-sell", callback_data="cb_mcap:skip")],
+        [InlineKeyboardButton("◀ Back", callback_data="back_to_creator_buy")],
         [InlineKeyboardButton("❌ Cancel", callback_data="launch_cancel")],
     ])
 
@@ -100,6 +104,7 @@ def dex_options_keyboard(prices: dict, dex_update: bool, dex_boost: bool) -> Inl
         [InlineKeyboardButton(upd, callback_data="dex_toggle_update")],
         [InlineKeyboardButton(bst, callback_data="dex_toggle_boost")],
         [InlineKeyboardButton("🚀 Confirm & Launch", callback_data="dex_confirm")],
+        [InlineKeyboardButton("◀ Back", callback_data="back_to_target_mcap")],
         [InlineKeyboardButton("❌ Cancel", callback_data="launch_cancel")],
     ])
 
