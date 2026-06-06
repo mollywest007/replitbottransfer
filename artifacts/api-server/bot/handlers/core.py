@@ -277,9 +277,12 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         elif data == "back_to_home":
             session["step"] = "idle"
-            await query.edit_message_reply_markup(reply_markup=None)
+            try:
+                await query.message.delete()
+            except Exception:
+                await query.edit_message_reply_markup(reply_markup=None)
             await update.effective_message.reply_text(
-                "🏠 Main Menu",
+                "Main Menu",
                 reply_markup=main_menu_keyboard(),
             )
 

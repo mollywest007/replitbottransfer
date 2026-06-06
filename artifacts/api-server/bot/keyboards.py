@@ -121,7 +121,7 @@ def token_panel_keyboard(mint_address: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔒 Revoke Mint", callback_data=f"panel_revoke_mint:{mint_address}"),
             InlineKeyboardButton("🔒 Revoke Freeze", callback_data=f"panel_revoke_freeze:{mint_address}"),
         ],
-        [InlineKeyboardButton("🏠 Home", callback_data="back_to_home")],
+        [InlineKeyboardButton("Home", callback_data="back_to_home")],
     ])
 
 
@@ -146,12 +146,12 @@ def revoke_confirm_keyboard(mint_address: str, authority_type: str) -> InlineKey
 def wallet_refresh_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔄 Refresh Balance", callback_data="wallet_refresh")],
-        [InlineKeyboardButton("🏠 Home", callback_data="back_to_home")],
+        [InlineKeyboardButton("Home", callback_data="back_to_home")],
     ])
 
 
 def generate_wallet_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⚡ Generate Wallet", callback_data="generate_wallet")],
-        [InlineKeyboardButton("🏠 Home", callback_data="back_to_home")],
+        [InlineKeyboardButton("Home", callback_data="back_to_home")],
     ])
