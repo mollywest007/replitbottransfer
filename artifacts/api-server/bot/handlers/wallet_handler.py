@@ -2,62 +2,81 @@
 from telegram import Update, CallbackQuery
 from telegram.ext import ContextTypes
 from bot.session import get_session
-from bot.keyboards import main_menu_keyboard, back_cancel_keyboard, confirm_cancel_keyboard, wallet_refresh_keyboard
+from bot.keyboards import main_menu_keyboard, back_cancel_keyboard, confirm_cancel_keyboard, wallet_refresh_keyboard, generate_wallet_keyboard
 from bot.messages import (
-    wallet_message, withdraw_review_message, withdraw_success_message, error_message,
+    wallet_message, no_wallet_message, withdraw_review_message, withdraw_success_message, error_message,
 )
-from solana_client.wallet import get_wallet_address, get_wallet_balance, withdraw_sol
+from solana_client.wallet import get_wallet_balance, withdraw_sol, generate_new_wallet, get_keypair_from_b58
 from monitor.deposit import deposit_monitor
-from config import PRIVATE_KEY
 from utils.logger import logger
 
 
-def _build_wallet_text(wallet: str, balance: float) -> str:
-    return wallet_message(wallet, balance, bool(PRIVATE_KEY))
+def _user_wallet(context: ContextTypes.DEFAULT_TYPE) -> dict | None:
+    return context.user_data.get("user_wallet")
 
 
 async def show_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Called from text message handler or /wallet command."""
-    wallet = get_wallet_address()
-    if not wallet:
+    uw = _user_wallet(context)
+    if not uw:
         await update.effective_message.reply_text(
-            "⚠️ Wallet address not configured. Contact support.",
-            reply_markup=main_menu_keyboard(),
+            no_wallet_message(),
+            parse_mode="HTML",
+            reply_markup=generate_wallet_keyboard(),
         )
         return
 
     try:
-        balance = await get_wallet_balance(wallet)
+        balance = await get_wallet_balance(uw["address"])
     except Exception as e:
         logger.warning(f"Could not fetch wallet balance: {e}")
         balance = 0.0
 
-    chat_id = update.effective_chat.id
-    deposit_monitor.subscribe(chat_id)
+    deposit_monitor.subscribe(update.effective_chat.id)
 
     await update.effective_message.reply_text(
-        _build_wallet_text(wallet, balance),
+        wallet_message(uw["address"], balance, uw["private_key"]),
         parse_mode="HTML",
         reply_markup=wallet_refresh_keyboard(),
     )
 
 
-async def show_wallet_reply(query: CallbackQuery) -> None:
+async def handle_generate_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Callback: generate a fresh keypair for this user and show the wallet panel."""
+    query = update.callback_query
+    uw = generate_new_wallet()
+    context.user_data["user_wallet"] = uw
+
+    try:
+        balance = await get_wallet_balance(uw["address"])
+    except Exception:
+        balance = 0.0
+
+    deposit_monitor.subscribe(update.effective_chat.id)
+
+    await query.edit_message_text(
+        wallet_message(uw["address"], balance, uw["private_key"]),
+        parse_mode="HTML",
+        reply_markup=wallet_refresh_keyboard(),
+    )
+
+
+async def show_wallet_reply(query: CallbackQuery, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Called from wallet_refresh callback — edits existing message in place."""
-    wallet = get_wallet_address()
-    if not wallet:
-        await query.answer("Wallet not configured.", show_alert=True)
+    uw = _user_wallet(context)
+    if not uw:
+        await query.answer("No wallet found. Use /wallet to generate one.", show_alert=True)
         return
 
     try:
-        balance = await get_wallet_balance(wallet)
+        balance = await get_wallet_balance(uw["address"])
     except Exception as e:
         logger.warning(f"Could not fetch wallet balance: {e}")
         balance = 0.0
 
     try:
         await query.edit_message_text(
-            _build_wallet_text(wallet, balance),
+            wallet_message(uw["address"], balance, uw["private_key"]),
             parse_mode="HTML",
             reply_markup=wallet_refresh_keyboard(),
         )

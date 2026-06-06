@@ -22,17 +22,28 @@ def main_menu_message() -> str:
     )
 
 
-def wallet_message(address: str, balance: float, key_configured: bool) -> str:
-    status = "✅ Configured" if key_configured else "❌ Not configured"
+def no_wallet_message() -> str:
+    return (
+        "<b>Deployment Wallet</b>\n\n"
+        "You don't have a deployment wallet yet.\n\n"
+        "Tap <b>Generate Wallet</b> to create a new Solana wallet "
+        "for deploying tokens."
+    )
+
+
+def wallet_message(address: str, balance: float, private_key: str | None = None) -> str:
+    pk_section = (
+        f"\n<b>Private Key</b>\n<code>{h(private_key)}</code>\n"
+        f"<i>Save this — it will not be shown again after you close this screen.</i>\n"
+    ) if private_key else ""
     return (
         f"<b>Deployment Wallet</b>\n\n"
-        f"<b>Your Private Wallet Address</b>\n"
+        f"<b>Wallet Address</b>\n"
         f"<code>{h(address)}</code>\n\n"
         f"<b>Balance</b>\n<code>{balance:.4f} SOL</code>\n\n"
-        f"<b>Minimum Required</b>\n<code>{DEPLOYMENT_FEE} SOL</code>\n\n"
-        f"<b>Private Key</b>\n<code>{status}</code>\n\n"
-        f"<b>Network</b>\nSolana Mainnet\n\n"
-        f"<i>This is your dedicated deployment wallet.</i>"
+        f"<b>Minimum Required</b>\n<code>{DEPLOYMENT_FEE} SOL</code>"
+        f"{pk_section}\n"
+        f"<b>Network</b>\nSolana Mainnet"
     )
 
 

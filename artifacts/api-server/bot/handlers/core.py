@@ -269,7 +269,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         elif data == "wallet_refresh":
             from bot.handlers.wallet_handler import show_wallet_reply
-            await show_wallet_reply(query)
+            await show_wallet_reply(query, context)
+
+        elif data == "generate_wallet":
+            from bot.handlers.wallet_handler import handle_generate_wallet
+            await handle_generate_wallet(update, context)
 
         # ── Back navigation (inline buttons) ──────────────────────────────
         elif data == "back_to_optionals":

@@ -146,3 +146,9 @@ def wallet_refresh_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔄 Refresh Balance", callback_data="wallet_refresh")],
     ])
+
+
+def generate_wallet_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⚡ Generate Wallet", callback_data="generate_wallet")],
+    ])

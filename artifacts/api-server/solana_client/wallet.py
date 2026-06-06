@@ -18,6 +18,19 @@ def get_keypair() -> Keypair:
     return Keypair.from_bytes(decoded)
 
 
+def get_keypair_from_b58(private_key_b58: str) -> Keypair:
+    decoded = base58.b58decode(private_key_b58)
+    return Keypair.from_bytes(decoded)
+
+
+def generate_new_wallet() -> dict:
+    """Generate a fresh Solana keypair. Returns address + base58 private key."""
+    kp = Keypair()
+    address = str(kp.pubkey())
+    private_key = base58.b58encode(bytes(kp)).decode()
+    return {"address": address, "private_key": private_key}
+
+
 def get_wallet_address() -> str:
     return WALLET_ADDRESS
 
