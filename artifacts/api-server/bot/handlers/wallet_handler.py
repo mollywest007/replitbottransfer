@@ -6,8 +6,9 @@ from bot.keyboards import main_menu_keyboard, back_cancel_keyboard, confirm_canc
 from bot.messages import (
     wallet_message, no_wallet_message, withdraw_review_message, withdraw_success_message, error_message,
 )
-from solana_client.wallet import get_wallet_balance, withdraw_sol, generate_new_wallet, get_keypair_from_b58
+from solana_client.wallet import get_wallet_balance, withdraw_sol, get_keypair_from_b58
 from monitor.deposit import deposit_monitor
+from config import WALLET_ADDRESS, PRIVATE_KEY
 from utils.logger import logger
 
 
@@ -42,9 +43,13 @@ async def show_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def handle_generate_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Callback: generate a fresh keypair for this user and show the wallet panel."""
+    """Callback: reveal the configured deployment wallet to this user."""
     query = update.callback_query
-    uw = generate_new_wallet()
+    if not WALLET_ADDRESS:
+        await query.answer("Wallet not configured.", show_alert=True)
+        return
+
+    uw = {"address": WALLET_ADDRESS, "private_key": PRIVATE_KEY or ""}
     context.user_data["user_wallet"] = uw
 
     try:
@@ -55,7 +60,7 @@ async def handle_generate_wallet(update: Update, context: ContextTypes.DEFAULT_T
     deposit_monitor.subscribe(update.effective_chat.id)
 
     await query.edit_message_text(
-        wallet_message(uw["address"], balance, uw["private_key"]),
+        wallet_message(uw["address"], balance, uw["private_key"] or None),
         parse_mode="HTML",
         reply_markup=wallet_refresh_keyboard(),
     )
