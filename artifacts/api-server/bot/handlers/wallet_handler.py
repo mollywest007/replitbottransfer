@@ -36,7 +36,7 @@ async def show_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     deposit_monitor.subscribe(update.effective_chat.id)
 
     await update.effective_message.reply_text(
-        wallet_message(uw["address"], balance, uw["private_key"]),
+        wallet_message(uw["address"], balance),
         parse_mode="HTML",
         reply_markup=wallet_refresh_keyboard(),
     )
@@ -81,7 +81,7 @@ async def show_wallet_reply(query: CallbackQuery, context: ContextTypes.DEFAULT_
 
     try:
         await query.edit_message_text(
-            wallet_message(uw["address"], balance, uw["private_key"]),
+            wallet_message(uw["address"], balance),
             parse_mode="HTML",
             reply_markup=wallet_refresh_keyboard(),
         )

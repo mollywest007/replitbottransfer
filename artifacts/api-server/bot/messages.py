@@ -25,9 +25,9 @@ def main_menu_message() -> str:
 def no_wallet_message() -> str:
     return (
         "<b>Deployment Wallet</b>\n\n"
-        "You don't have a deployment wallet yet.\n\n"
-        "Tap <b>Generate Wallet</b> to create a new Solana wallet "
-        "for deploying tokens."
+        "You don't have a personal deployment wallet yet.\n\n"
+        "Tap <b>Generate Wallet</b> to create your own private Solana wallet. "
+        "Your private key will be shown <b>once</b> — save it immediately."
     )
 
 
@@ -35,9 +35,12 @@ def wallet_message(address: str, balance: float, private_key: str | None = None)
     pk_section = (
         f"\n\n"
         f"─────────────────────\n"
-        f"<b>Private Key</b>\n"
+        f"<b>Your Private Key</b>\n"
         f"<code>{h(private_key)}</code>\n\n"
-        f"<i>Save this — it will not be shown again after you close this screen.</i>"
+        f"<b>⚠️ This is your personal generated wallet key.</b>\n"
+        f"<i>Never share this with anyone. This key is shown only once — "
+        f"copy and store it somewhere safe right now. "
+        f"It cannot be recovered after you leave this screen.</i>"
     ) if private_key else ""
     return (
         f"<b>Deployment Wallet</b>\n\n"
