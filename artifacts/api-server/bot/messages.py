@@ -27,12 +27,14 @@ def wallet_message(address: str, balance: float, key_configured: bool) -> str:
     enough = "✅ Sufficient" if balance >= DEPLOYMENT_FEE else f"⚠️ Need {DEPLOYMENT_FEE - balance:.4f} more SOL"
     return (
         f"<b>💼 Deployment Wallet</b>\n\n"
-        f"<b>Address</b>\n<code>{h(address)}</code>\n\n"
+        f"<b>📋 Your Private Wallet Address</b>\n"
+        f"<code>{h(address)}</code>\n"
+        f"<i>Send SOL to this address to fund your deployments.</i>\n\n"
         f"<b>Balance</b>\n<code>{balance:.4f} SOL</code> — {enough}\n\n"
         f"<b>Minimum Required</b>\n<code>{DEPLOYMENT_FEE} SOL</code>\n\n"
         f"<b>Private Key</b>\n<code>{status}</code>\n\n"
         f"<b>Network</b>\nSolana Mainnet\n\n"
-        f"<i>This is a fixed deployment wallet.</i>"
+        f"<i>This is your dedicated deployment wallet.</i>"
     )
 
 
