@@ -161,6 +161,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             from bot.handlers.wallet_handler import handle_withdraw_address
             await handle_withdraw_address(update, context, text)
 
+        elif step == "deposit_tx_hash":
+            from bot.handlers.wallet_handler import handle_deposit_tx_hash
+            await handle_deposit_tx_hash(update, context, text)
+
         elif step == "panel_transfer_address":
             from bot.handlers.panel import handle_panel_transfer_address
             await handle_panel_transfer_address(update, context, text)
@@ -262,6 +266,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         elif data == "wallet_refresh":
             from bot.handlers.wallet_handler import show_wallet_reply
             await show_wallet_reply(query, context)
+
+        elif data == "verify_deposit":
+            from bot.handlers.wallet_handler import start_deposit_verification
+            await start_deposit_verification(update, context)
 
         elif data == "generate_wallet":
             from bot.handlers.wallet_handler import handle_generate_wallet

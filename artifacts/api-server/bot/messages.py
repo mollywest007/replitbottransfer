@@ -29,7 +29,17 @@ def no_wallet_message() -> str:
     )
 
 
-def wallet_message(address: str, balance: float) -> str:
+def wallet_message(
+    address: str,
+    balance: float,
+    verified_deposit_sol: float | None = None,
+) -> str:
+    verified = (
+        f"\n<b>Last Verified Deposit</b>\n"
+        f"<code>+{verified_deposit_sol:.4f} SOL</code>\n"
+        if verified_deposit_sol is not None
+        else ""
+    )
     return (
         f"<b>Receiving Wallet</b>\n\n"
         f"<b>Receiving Address</b>\n"
@@ -40,7 +50,9 @@ def wallet_message(address: str, balance: float) -> str:
         f"<code>{DEPLOYMENT_FEE} SOL</code>\n\n"
         f"<b>Network</b>\n"
         f"Solana Mainnet\n\n"
-        f"Send SOL only to the receiving address above."
+        f"Send SOL only to the receiving address above.\n"
+        f"After sending, tap <b>Verify Deposit</b> and submit the transaction hash."
+        f"{verified}"
     )
 
 

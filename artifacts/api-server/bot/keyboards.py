@@ -138,6 +138,7 @@ def revoke_confirm_keyboard(mint_address: str, authority_type: str) -> InlineKey
 def wallet_refresh_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔄 Refresh Balance", callback_data="wallet_refresh")],
+        [InlineKeyboardButton("✅ Verify Deposit", callback_data="verify_deposit")],
         [InlineKeyboardButton("Home", callback_data="back_to_home")],
     ])
 

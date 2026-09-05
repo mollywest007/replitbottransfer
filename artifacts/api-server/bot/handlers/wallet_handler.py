@@ -12,6 +12,7 @@ from bot.messages import (
     wallet_message, no_wallet_message,
 )
 from solana_client.wallet import get_wallet_balance
+from solana_client.deposits import DepositVerificationError, verify_deposit
 from monitor.deposit import deposit_monitor
 from config import RECEIVING_WALLET_ADDRESS
 from utils.logger import logger
@@ -42,7 +43,11 @@ async def show_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     deposit_monitor.subscribe(update.effective_chat.id)
 
     await update.effective_message.reply_text(
-        wallet_message(uw["address"], balance),
+        wallet_message(
+            uw["address"],
+            balance,
+            verified_deposit_sol=context.user_data.get("last_verified_deposit_sol"),
+        ),
         parse_mode="HTML",
         reply_markup=wallet_refresh_keyboard(),
     )
@@ -62,10 +67,69 @@ async def handle_generate_wallet(update: Update, context: ContextTypes.DEFAULT_T
     deposit_monitor.subscribe(update.effective_chat.id)
 
     await query.edit_message_text(
-        wallet_message(uw["address"], balance),
+        wallet_message(
+            uw["address"],
+            balance,
+            verified_deposit_sol=context.user_data.get("last_verified_deposit_sol"),
+        ),
         parse_mode="HTML",
         reply_markup=wallet_refresh_keyboard(),
     )
+
+
+async def start_deposit_verification(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    session = get_session(context)
+    session["step"] = "deposit_tx_hash"
+    await update.effective_message.reply_text(
+        "<b>Verify Deposit</b>\n\n"
+        "Send the Solana transaction hash for your deposit.\n\n"
+        "<i>Each transaction hash can only verify one deposit once.</i>",
+        parse_mode="HTML",
+        reply_markup=back_cancel_keyboard(),
+    )
+
+
+async def handle_deposit_tx_hash(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+) -> None:
+    session = get_session(context)
+    user_id = update.effective_user.id
+    try:
+        verified = await verify_deposit(text, user_id)
+        session["last_verified_deposit_sol"] = verified["amount_sol"]
+        session["step"] = "idle"
+        wallet = get_wallet_address()
+        balance = await get_wallet_balance(wallet)
+        deposit_monitor.subscribe(update.effective_chat.id)
+        await update.effective_message.reply_text(
+            wallet_message(
+                wallet,
+                balance,
+                verified_deposit_sol=verified["amount_sol"],
+            ),
+            parse_mode="HTML",
+            reply_markup=wallet_refresh_keyboard(),
+        )
+    except DepositVerificationError as exc:
+        await update.effective_message.reply_text(
+            f"<b>Deposit not verified</b>\n\n{exc}\n\n"
+            "Send another transaction hash to try again.",
+            parse_mode="HTML",
+            reply_markup=back_cancel_keyboard(),
+        )
+    except Exception as exc:
+        logger.error(f"Deposit verification failed: {exc}", exc_info=True)
+        await update.effective_message.reply_text(
+            "<b>Deposit not verified</b>\n\n"
+            "The verification service is temporarily unavailable. Try again shortly.",
+            parse_mode="HTML",
+            reply_markup=back_cancel_keyboard(),
+        )
 
 
 async def start_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -124,7 +188,11 @@ async def show_wallet_reply(query: CallbackQuery, context: ContextTypes.DEFAULT_
 
     try:
         await query.edit_message_text(
-            wallet_message(uw["address"], balance),
+            wallet_message(
+                uw["address"],
+                balance,
+                verified_deposit_sol=context.user_data.get("last_verified_deposit_sol"),
+            ),
             parse_mode="HTML",
             reply_markup=wallet_refresh_keyboard(),
         )

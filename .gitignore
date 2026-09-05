@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Runtime deposit-verification database
+artifacts/api-server/data/*.sqlite3
