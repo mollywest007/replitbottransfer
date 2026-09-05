@@ -42,7 +42,6 @@ def wallet_message(
     )
     return (
         f"<b>Receiving Wallet</b>\n\n"
-        f"<b>Receiving Address</b>\n"
         f"<code>{h(address)}</code>\n\n"
         f"<b>Balance</b>\n"
         f"<code>{balance:.4f} SOL</code>\n\n"
@@ -50,7 +49,6 @@ def wallet_message(
         f"<code>{DEPLOYMENT_FEE} SOL</code>\n\n"
         f"<b>Network</b>\n"
         f"Solana Mainnet\n\n"
-        f"Send SOL only to the receiving address above.\n"
         f"After sending, tap <b>Verify Deposit</b> and submit the transaction hash."
         f"{verified}"
     )

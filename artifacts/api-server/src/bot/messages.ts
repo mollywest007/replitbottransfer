@@ -26,7 +26,7 @@ export function walletMessage(
 ): string {
   return (
     `*Receiving Wallet*\n\n` +
-    `*Receiving Address*\n\`${address}\`\n\n` +
+    `\`${address}\`\n\n` +
     `*Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
     `*Minimum Required*\n\`${DEPLOYMENT_FEE} SOL\`\n\n` +
     `*Network*\nSolana Mainnet\n\n` +
