@@ -44,6 +44,11 @@ async def cmd_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await show_wallet(update, context)
 
 
+async def cmd_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from bot.handlers.wallet_handler import start_withdraw
+    await start_withdraw(update, context)
+
+
 async def cmd_launch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = get_session(context)
     token = session["token"]
@@ -96,6 +101,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         elif text == "Wallet Info":
             from bot.handlers.wallet_handler import show_wallet
             await show_wallet(update, context)
+
+        elif text == "Withdraw SOL":
+            from bot.handlers.wallet_handler import start_withdraw
+            await start_withdraw(update, context)
 
         elif text == "Review Deployment":
             await cmd_review(update, context)

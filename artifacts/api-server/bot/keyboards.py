@@ -5,7 +5,7 @@ def main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
             ["Create Token", "Wallet Info"],
-            ["Review Deployment"],
+            ["Withdraw SOL", "Review Deployment"],
             ["Launch Token", "Token Panel"],
             ["Help", "Reset"],
         ],

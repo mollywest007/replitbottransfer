@@ -62,6 +62,17 @@ async def handle_generate_wallet(update: Update, context: ContextTypes.DEFAULT_T
     )
 
 
+async def start_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Explain why withdrawals are unavailable without a configured signer."""
+    await update.effective_message.reply_text(
+        "<b>Withdrawals unavailable</b>\n\n"
+        "This bot can receive SOL using its public address, but it does not store "
+        "a signing key. Configure a separate signer securely before enabling withdrawals.",
+        parse_mode="HTML",
+        reply_markup=main_menu_keyboard(),
+    )
+
+
 async def show_wallet_reply(query: CallbackQuery, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Called from wallet_refresh callback — edits existing message in place."""
     uw = _user_wallet(context)

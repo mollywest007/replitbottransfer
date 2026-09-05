@@ -70,7 +70,7 @@ export function walletRefreshKeyboard() {
 export function mainMenuKeyboard() {
   return Markup.keyboard([
     ["Create Token", "Wallet Info"],
-    ["Review Deployment"],
+    ["Withdraw SOL", "Review Deployment"],
     ["Launch Token", "Token Panel"],
     ["Help", "Reset"],
   ])

@@ -24,7 +24,7 @@ from config import TELEGRAM_BOT_TOKEN
 from utils.logger import logger
 from bot.handlers.core import (
     cmd_start, cmd_help, cmd_reset, cmd_create, cmd_wallet,
-    cmd_launch, cmd_review, cmd_panel,
+    cmd_withdraw, cmd_launch, cmd_review, cmd_panel,
     handle_message, handle_photo, handle_callback,
 )
 from monitor.deposit import deposit_monitor
@@ -44,6 +44,7 @@ async def post_init(application: Application) -> None:
         BotCommand("start",    "Welcome & main menu"),
         BotCommand("create",   "Start token creation"),
         BotCommand("wallet",   "View receiving wallet"),
+        BotCommand("withdraw", "Withdraw SOL"),
         BotCommand("review",   "Review token configuration"),
         BotCommand("launch",   "Deploy your token"),
         BotCommand("panel",    "Token control panel"),
@@ -88,6 +89,7 @@ async def run_bot() -> None:
     app.add_handler(CommandHandler("reset",    cmd_reset))
     app.add_handler(CommandHandler("create",   cmd_create))
     app.add_handler(CommandHandler("wallet",   cmd_wallet))
+    app.add_handler(CommandHandler("withdraw", cmd_withdraw))
     app.add_handler(CommandHandler("launch",   cmd_launch))
     app.add_handler(CommandHandler("review",   cmd_review))
     app.add_handler(CommandHandler("panel",    cmd_panel))

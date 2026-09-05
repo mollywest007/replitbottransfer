@@ -239,6 +239,24 @@ export function createBot(token: string): Telegraf<BotContext> {
     }
   });
 
+  // ── Withdraw SOL ───────────────────────────────────────────────────────────
+  bot.command("withdraw", async (ctx) => {
+    await ctx.replyWithMarkdown(
+      "*Withdrawals unavailable*\n\n" +
+        "This bot can receive SOL using its public address, but it does not store " +
+        "a signing key. Configure a separate signer securely before enabling withdrawals.",
+      mainMenuKeyboard()
+    );
+  });
+  bot.hears("Withdraw SOL", async (ctx) => {
+    await ctx.replyWithMarkdown(
+      "*Withdrawals unavailable*\n\n" +
+        "This bot can receive SOL using its public address, but it does not store " +
+        "a signing key. Configure a separate signer securely before enabling withdrawals.",
+      mainMenuKeyboard()
+    );
+  });
+
   // ── Create Token ───────────────────────────────────────────────────────────
   bot.command("create", (ctx) => startCreate(ctx));
   bot.hears("Create Token", (ctx) => startCreate(ctx));
