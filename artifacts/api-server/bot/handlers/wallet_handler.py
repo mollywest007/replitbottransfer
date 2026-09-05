@@ -2,7 +2,12 @@
 from telegram import Update, CallbackQuery
 from telegram.ext import ContextTypes
 from bot.session import get_session
-from bot.keyboards import main_menu_keyboard, wallet_refresh_keyboard, generate_wallet_keyboard
+from bot.keyboards import (
+    main_menu_keyboard,
+    back_cancel_keyboard,
+    wallet_refresh_keyboard,
+    generate_wallet_keyboard,
+)
 from bot.messages import (
     wallet_message, no_wallet_message,
 )
@@ -10,6 +15,7 @@ from solana_client.wallet import get_wallet_balance
 from monitor.deposit import deposit_monitor
 from config import RECEIVING_WALLET_ADDRESS
 from utils.logger import logger
+from solders.pubkey import Pubkey
 
 
 def _user_wallet(context: ContextTypes.DEFAULT_TYPE) -> dict | None:
@@ -63,11 +69,41 @@ async def handle_generate_wallet(update: Update, context: ContextTypes.DEFAULT_T
 
 
 async def start_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Explain why withdrawals are unavailable without a configured signer."""
+    """Start the withdrawal destination-address step."""
+    session = get_session(context)
+    session["step"] = "withdraw_address"
+    session["withdraw"] = {}
     await update.effective_message.reply_text(
-        "<b>Withdrawals unavailable</b>\n\n"
-        "This bot can receive SOL using its public address, but it does not store "
-        "a signing key. Configure a separate signer securely before enabling withdrawals.",
+        "<b>Withdraw SOL</b>\n\n"
+        "Send the Solana address you want to withdraw to.",
+        parse_mode="HTML",
+        reply_markup=back_cancel_keyboard(),
+    )
+
+
+async def handle_withdraw_address(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    text: str,
+) -> None:
+    """Validate and retain the requested withdrawal destination."""
+    session = get_session(context)
+    address = text.strip()
+    try:
+        Pubkey.from_string(address)
+    except Exception:
+        await update.effective_message.reply_text(
+            "That is not a valid Solana address. Please send the destination address again.",
+            reply_markup=back_cancel_keyboard(),
+        )
+        return
+
+    session["withdraw"]["to"] = address
+    session["step"] = "idle"
+    await update.effective_message.reply_text(
+        "<b>Withdrawal address received</b>\n\n"
+        f"Destination: <code>{address}</code>\n\n"
+        "The withdrawal cannot be sent yet because this bot has no signing key configured.",
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(),
     )

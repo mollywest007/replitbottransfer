@@ -36,6 +36,7 @@ def default_session() -> dict[str, Any]:
             "revoke_freeze": False,
         },
         "panel_transfer": {},
+        "withdraw": {},
         "history": [],
         "dex_update": False,
         "dex_boost": False,

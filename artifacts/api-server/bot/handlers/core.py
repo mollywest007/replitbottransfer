@@ -157,6 +157,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             from bot.handlers.launch import handle_target_mcap_custom_input
             await handle_target_mcap_custom_input(update, context, text)
 
+        elif step == "withdraw_address":
+            from bot.handlers.wallet_handler import handle_withdraw_address
+            await handle_withdraw_address(update, context, text)
+
         elif step == "panel_transfer_address":
             from bot.handlers.panel import handle_panel_transfer_address
             await handle_panel_transfer_address(update, context, text)
