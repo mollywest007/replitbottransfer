@@ -24,7 +24,7 @@ def main_menu_message() -> str:
 def no_wallet_message() -> str:
     return (
         "<b>Receiving Wallet</b>\n\n"
-        "This bot receives SOL at its fixed public receiving address.\n\n"
+        "This bot receives SOL at its fixed receiving address.\n\n"
         "Tap <b>Show Receiving Address</b> to view the address and current balance."
     )
 
@@ -32,7 +32,7 @@ def no_wallet_message() -> str:
 def wallet_message(address: str, balance: float) -> str:
     return (
         f"<b>Receiving Wallet</b>\n\n"
-        f"<b>Public Address</b>\n"
+        f"<b>Receiving Address</b>\n"
         f"<code>{h(address)}</code>\n\n"
         f"<b>Balance</b>\n"
         f"<code>{balance:.4f} SOL</code>\n\n"
@@ -40,7 +40,7 @@ def wallet_message(address: str, balance: float) -> str:
         f"<code>{DEPLOYMENT_FEE} SOL</code>\n\n"
         f"<b>Network</b>\n"
         f"Solana Mainnet\n\n"
-        f"Send SOL only to the public address above."
+        f"Send SOL only to the receiving address above."
     )
 
 

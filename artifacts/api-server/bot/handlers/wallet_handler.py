@@ -1,4 +1,4 @@
-"""Public receiving wallet information and balance flow."""
+"""Receiving wallet information and balance flow."""
 from telegram import Update, CallbackQuery
 from telegram.ext import ContextTypes
 from bot.session import get_session

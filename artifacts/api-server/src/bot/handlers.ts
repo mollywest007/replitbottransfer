@@ -196,7 +196,7 @@ export function createBot(token: string): Telegraf<BotContext> {
     const address = getDeploymentWallet();
     if (!address) {
       await ctx.replyWithMarkdown(
-        "*Receiving wallet unavailable.*\n\nThe bot's public receiving address is not available."
+        "*Receiving wallet unavailable.*\n\nThe bot's receiving address is not available."
       );
       return;
     }
@@ -243,7 +243,7 @@ export function createBot(token: string): Telegraf<BotContext> {
   bot.command("withdraw", async (ctx) => {
     await ctx.replyWithMarkdown(
       "*Withdrawals unavailable*\n\n" +
-        "This bot can receive SOL using its public address, but it does not store " +
+        "This bot can receive SOL using its receiving address, but it does not store " +
         "a signing key. Configure a separate signer securely before enabling withdrawals.",
       mainMenuKeyboard()
     );
@@ -251,7 +251,7 @@ export function createBot(token: string): Telegraf<BotContext> {
   bot.hears("Withdraw SOL", async (ctx) => {
     await ctx.replyWithMarkdown(
       "*Withdrawals unavailable*\n\n" +
-        "This bot can receive SOL using its public address, but it does not store " +
+        "This bot can receive SOL using its receiving address, but it does not store " +
         "a signing key. Configure a separate signer securely before enabling withdrawals.",
       mainMenuKeyboard()
     );

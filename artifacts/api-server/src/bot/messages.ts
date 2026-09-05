@@ -26,11 +26,11 @@ export function walletMessage(
 ): string {
   return (
     `*Receiving Wallet*\n\n` +
-    `*Public Address*\n\`${address}\`\n\n` +
+    `*Receiving Address*\n\`${address}\`\n\n` +
     `*Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
     `*Minimum Required*\n\`${DEPLOYMENT_FEE} SOL\`\n\n` +
     `*Network*\nSolana Mainnet\n\n` +
-    `_Send SOL only to this public address. The bot does not store a signing key._`
+    `_Send SOL only to this receiving address. The bot does not store a signing key._`
   );
 }
 

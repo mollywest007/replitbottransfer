@@ -8,7 +8,7 @@ A Python Telegram bot that guides users through creating and deploying SPL token
 - The health endpoint is available at `/api/healthz` on the configured application port.
 - Python dependencies are pinned in `artifacts/api-server/requirements.txt`.
 - Required secret: `TELEGRAM_BOT_TOKEN`.
-- Receiving wallet: `no463nB9777LFRUEjw5bLssFj5n5YzAmz9HMvrJ3AB6` (public address).
+- Receiving wallet: `no463nB9777LFRUEjw5bLssFj5n5YzAmz9HMvrJ3AB6` (receiving address).
 
 ## Stack
 
@@ -30,7 +30,7 @@ A Python Telegram bot that guides users through creating and deploying SPL token
 
 - Bot state is stored per user in `context.user_data["session"]`.
 - The health server and Telegram polling run concurrently on the same process.
-- The receiving wallet is a fixed public address. The bot does not store wallet credentials for receiving SOL.
+- The receiving wallet is a fixed receiving address. The bot does not store wallet credentials for receiving SOL.
 - Pump.fun deployment uses the language-agnostic PumpPortal API.
 - Solana mainnet RPC is public by default; use a private RPC for production workloads.
 
