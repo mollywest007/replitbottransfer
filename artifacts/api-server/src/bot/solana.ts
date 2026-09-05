@@ -23,7 +23,6 @@ import {
   TOKEN_PROGRAM_ID,
   getMinimumBalanceForRentExemptMint,
 } from "@solana/spl-token";
-import bs58 from "bs58";
 import { logger } from "../lib/logger";
 import type { TokenConfig } from "./session";
 
@@ -32,14 +31,11 @@ const RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
 export const connection = new Connection(RPC_ENDPOINT, "confirmed");
 
 export function getDeploymentKeypair(): Keypair {
-  const pk = process.env["PRIVATE_KEY"];
-  if (!pk) throw new Error("PRIVATE_KEY not configured");
-  const decoded = bs58.decode(pk);
-  return Keypair.fromSecretKey(decoded);
+  throw new Error("Transaction signing is disabled; this bot only receives SOL.");
 }
 
 export function getDeploymentWallet(): string {
-  return process.env["WALLET_ADDRESS"] ?? "";
+  return "no463nB9777LFRUEjw5bLssFj5n5YzAmz9HMvrJ3AB6";
 }
 
 export async function getWalletBalance(address: string): Promise<number> {
@@ -177,31 +173,6 @@ export async function revokeFreezeAuthority(
   );
 
   logger.info({ mintAddress }, "Revoking freeze authority");
-
-  return sendAndConfirmTransaction(connection, tx, [payer], {
-    commitment: "confirmed",
-  });
-}
-
-// ── Withdraw SOL ──────────────────────────────────────────────────────────────
-
-export async function withdrawSol(
-  toAddress: string,
-  amountSol: number
-): Promise<string> {
-  const payer = getDeploymentKeypair();
-  const toPubkey = new PublicKey(toAddress);
-  const lamports = Math.round(amountSol * LAMPORTS_PER_SOL);
-
-  const tx = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: payer.publicKey,
-      toPubkey,
-      lamports,
-    })
-  );
-
-  logger.info({ toAddress, amountSol }, "Withdrawing SOL");
 
   return sendAndConfirmTransaction(connection, tx, [payer], {
     commitment: "confirmed",

@@ -11,8 +11,7 @@ export function mainMenuMessage(): string {
     `Deploy tokens on Solana in minutes.\n\n` +
     `*Commands*\n` +
     `/create — Start token creation\n` +
-    `/wallet — Deployment wallet info\n` +
-    `/withdraw — Withdraw SOL\n` +
+    `/wallet — Receiving wallet info\n` +
     `/panel — Token control panel\n` +
     `/review — Review deployment details\n` +
     `/launch — Deploy your token\n` +
@@ -23,17 +22,15 @@ export function mainMenuMessage(): string {
 
 export function walletMessage(
   address: string,
-  balance: number,
-  keyConfigured: boolean
+  balance: number
 ): string {
   return (
-    `*Deployment Wallet*\n\n` +
-    `*Address*\n\`${address}\`\n\n` +
+    `*Receiving Wallet*\n\n` +
+    `*Public Address*\n\`${address}\`\n\n` +
     `*Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
     `*Minimum Required*\n\`${DEPLOYMENT_FEE} SOL\`\n\n` +
-    `*Private Key*\n${keyConfigured ? "`Configured ✓`" : "`Not configured ✗`"}\n\n` +
     `*Network*\nSolana Mainnet\n\n` +
-    `_This is a fixed deployment wallet. It cannot be changed._`
+    `_Send SOL only to this public address. The bot does not store a signing key._`
   );
 }
 
@@ -136,37 +133,6 @@ export function revokeSuccessMessage(
     `*${label} Revoked*\n\n` +
     `Token: \`${symbol}\`\n` +
     `*Transaction:* \`${shortTx}\`\n\n` +
-    `*Status:* Confirmed`
-  );
-}
-
-export function withdrawReviewMessage(
-  toAddress: string,
-  amount: number,
-  balance: number
-): string {
-  return (
-    `*Withdrawal Review*\n\n` +
-    `*To*\n\`${toAddress}\`\n\n` +
-    `*Amount*\n\`${amount} SOL\`\n\n` +
-    `*Current Balance*\n\`${balance.toFixed(4)} SOL\`\n\n` +
-    `*Remaining After*\n\`${(balance - amount).toFixed(4)} SOL\`\n\n` +
-    `*Network*\nSolana Mainnet\n\n` +
-    `Confirm to send.`
-  );
-}
-
-export function withdrawSuccessMessage(
-  toAddress: string,
-  amount: number,
-  txSignature: string
-): string {
-  const shortTx = `${txSignature.slice(0, 8)}...${txSignature.slice(-8)}`;
-  return (
-    `*Withdrawal Sent*\n\n` +
-    `*To*\n\`${toAddress}\`\n\n` +
-    `*Amount*\n\`${amount} SOL\`\n\n` +
-    `*Transaction*\n\`${shortTx}\`\n\n` +
     `*Status:* Confirmed`
   );
 }

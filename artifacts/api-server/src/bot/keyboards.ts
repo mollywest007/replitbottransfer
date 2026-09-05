@@ -70,7 +70,7 @@ export function walletRefreshKeyboard() {
 export function mainMenuKeyboard() {
   return Markup.keyboard([
     ["Create Token", "Wallet Info"],
-    ["Withdraw SOL", "Review Deployment"],
+    ["Review Deployment"],
     ["Launch Token", "Token Panel"],
     ["Help", "Reset"],
   ])
@@ -98,18 +98,6 @@ export function optionalSkipKeyboard() {
   ])
     .resize()
     .oneTime(false);
-}
-
-export function withdrawInputKeyboard() {
-  return Markup.keyboard([["◀ Back", "Cancel"]])
-    .resize()
-    .oneTime(false);
-}
-
-export function withdrawConfirmKeyboard() {
-  return Markup.keyboard([["Confirm Withdrawal"], ["◀ Back", "Cancel"]])
-    .resize()
-    .oneTime(true);
 }
 
 export function tokenPanelKeyboard(mintAddress: string) {

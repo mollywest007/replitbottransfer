@@ -12,8 +12,7 @@ def main_menu_message() -> str:
         "Deploy tokens on Solana in minutes.\n\n"
         "<b>Commands</b>\n"
         "/create — Start token creation\n"
-        "/wallet — Deployment wallet info\n"
-        "/withdraw — Withdraw SOL\n"
+        "/wallet — Receiving wallet info\n"
         "/panel — Token control panel\n"
         "/review — Review deployment details\n"
         "/launch — Deploy your token\n"
@@ -24,35 +23,24 @@ def main_menu_message() -> str:
 
 def no_wallet_message() -> str:
     return (
-        "<b>Deployment Wallet</b>\n\n"
-        "You don't have a personal deployment wallet yet.\n\n"
-        "Tap <b>Generate Wallet</b> to create your own private Solana wallet. "
-        "Your private key will be shown <b>once</b> — save it immediately."
+        "<b>Receiving Wallet</b>\n\n"
+        "This bot receives SOL at its fixed public receiving address.\n\n"
+        "Tap <b>Show Receiving Address</b> to view the address and current balance."
     )
 
 
-def wallet_message(address: str, balance: float, private_key: str | None = None) -> str:
-    pk_section = (
-        f"\n\n"
-        f"─────────────────────\n"
-        f"<b>Your Private Key</b>\n"
-        f"<code>{h(private_key)}</code>\n\n"
-        f"<b>⚠️ This is your personal generated wallet key.</b>\n"
-        f"<i>Never share this with anyone. This key is shown only once — "
-        f"copy and store it somewhere safe right now. "
-        f"It cannot be recovered after you leave this screen.</i>"
-    ) if private_key else ""
+def wallet_message(address: str, balance: float) -> str:
     return (
-        f"<b>Deployment Wallet</b>\n\n"
-        f"<b>Wallet Address</b>\n"
+        f"<b>Receiving Wallet</b>\n\n"
+        f"<b>Public Address</b>\n"
         f"<code>{h(address)}</code>\n\n"
         f"<b>Balance</b>\n"
         f"<code>{balance:.4f} SOL</code>\n\n"
         f"<b>Minimum Required</b>\n"
         f"<code>{DEPLOYMENT_FEE} SOL</code>\n\n"
         f"<b>Network</b>\n"
-        f"Solana Mainnet"
-        f"{pk_section}"
+        f"Solana Mainnet\n\n"
+        f"Send SOL only to the public address above."
     )
 
 
@@ -276,28 +264,6 @@ def revoke_confirm_message(authority_type: str, symbol: str) -> str:
         f"Token: <code>{h(symbol)}</code>\n\n"
         f"⚠️ <b>This is permanent and cannot be undone.</b>\n\n"
         f"No one will ever be able to {action} again."
-    )
-
-
-def withdraw_review_message(to_address: str, amount: float, balance: float) -> str:
-    return (
-        f"<b>📤 Withdrawal Review</b>\n\n"
-        f"<b>To:</b> <code>{h(to_address)}</code>\n"
-        f"<b>Amount:</b> <code>{amount} SOL</code>\n"
-        f"<b>Current Balance:</b> <code>{balance:.4f} SOL</code>\n"
-        f"<b>Remaining After:</b> <code>{balance - amount:.4f} SOL</code>\n\n"
-        f"Confirm to send."
-    )
-
-
-def withdraw_success_message(to_address: str, amount: float, tx_sig: str) -> str:
-    short_tx = f"{tx_sig[:16]}..."
-    return (
-        f"<b>✅ Withdrawal Sent</b>\n\n"
-        f"<b>To:</b> <code>{h(to_address)}</code>\n"
-        f"<b>Amount:</b> <code>{amount} SOL</code>\n"
-        f"<b>Transaction:</b> <code>{short_tx}</code>\n"
-        f"<b>Status:</b> Confirmed"
     )
 
 

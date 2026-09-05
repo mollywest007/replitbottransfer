@@ -4,8 +4,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-WALLET_ADDRESS: str = os.environ.get("WALLET_ADDRESS", "")
-PRIVATE_KEY: str = os.environ.get("PRIVATE_KEY", "")
+# Receiving addresses are public information. Keep the receiving wallet
+# separate from any signing wallet managed outside this bot.
+RECEIVING_WALLET_ADDRESS = "no463nB9777LFRUEjw5bLssFj5n5YzAmz9HMvrJ3AB6"
 
 SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com"
 

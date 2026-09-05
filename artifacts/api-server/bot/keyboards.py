@@ -5,7 +5,7 @@ def main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
             ["Create Token", "Wallet Info"],
-            ["Withdraw SOL", "Review Deployment"],
+            ["Review Deployment"],
             ["Launch Token", "Token Panel"],
             ["Help", "Reset"],
         ],
@@ -28,14 +28,6 @@ def back_cancel_keyboard() -> ReplyKeyboardMarkup:
         [["◀ Back", "Cancel"]],
         resize_keyboard=True,
         one_time_keyboard=False,
-    )
-
-
-def confirm_cancel_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        [["✅ Confirm", "❌ Cancel"]],
-        resize_keyboard=True,
-        one_time_keyboard=True,
     )
 
 
@@ -152,6 +144,6 @@ def wallet_refresh_keyboard() -> InlineKeyboardMarkup:
 
 def generate_wallet_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⚡ Generate Wallet", callback_data="generate_wallet")],
+        [InlineKeyboardButton("Show Receiving Address", callback_data="generate_wallet")],
         [InlineKeyboardButton("Home", callback_data="back_to_home")],
     ])

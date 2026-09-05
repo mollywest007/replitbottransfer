@@ -7,7 +7,8 @@ A Python Telegram bot that guides users through creating and deploying SPL token
 - The Replit workflow runs `cd artifacts/api-server && python3 main.py`.
 - The health endpoint is available at `/api/healthz` on the configured application port.
 - Python dependencies are pinned in `artifacts/api-server/requirements.txt`.
-- Required secrets: `TELEGRAM_BOT_TOKEN`, `WALLET_ADDRESS`, `PRIVATE_KEY`.
+- Required secret: `TELEGRAM_BOT_TOKEN`.
+- Receiving wallet: `no463nB9777LFRUEjw5bLssFj5n5YzAmz9HMvrJ3AB6` (public address).
 
 ## Stack
 
@@ -29,7 +30,7 @@ A Python Telegram bot that guides users through creating and deploying SPL token
 
 - Bot state is stored per user in `context.user_data["session"]`.
 - The health server and Telegram polling run concurrently on the same process.
-- The deployment wallet is fixed through secrets and private keys are never logged.
+- The receiving wallet is a fixed public address. The bot does not store wallet credentials for receiving SOL.
 - Pump.fun deployment uses the language-agnostic PumpPortal API.
 - Solana mainnet RPC is public by default; use a private RPC for production workloads.
 
@@ -42,7 +43,7 @@ A Python Telegram bot that guides users through creating and deploying SPL token
 
 ## Security notes
 
-- Store all credentials in Replit Secrets; do not put them in `.replit` or commit them.
-- `PRIVATE_KEY` must be a base58-encoded Solana key from a wallet export.
+- Store the Telegram bot token in Replit Secrets; do not put it in `.replit` or commit it.
+- Keep any wallet signing credentials outside this receiving bot.
 - Rotate any credential that has been exposed in chat, source control, or logs.
 - The public RPC may rate-limit under load; use a private RPC for production.

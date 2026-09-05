@@ -44,11 +44,6 @@ async def cmd_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await show_wallet(update, context)
 
 
-async def cmd_withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from bot.handlers.wallet_handler import start_withdraw
-    await start_withdraw(update, context)
-
-
 async def cmd_launch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     session = get_session(context)
     token = session["token"]
@@ -102,10 +97,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             from bot.handlers.wallet_handler import show_wallet
             await show_wallet(update, context)
 
-        elif text == "Withdraw SOL":
-            from bot.handlers.wallet_handler import start_withdraw
-            await start_withdraw(update, context)
-
         elif text == "Review Deployment":
             await cmd_review(update, context)
 
@@ -141,10 +132,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             from bot.handlers.create import show_authority_settings
             await show_authority_settings(update, context)
 
-        elif text in ("✅ Confirm", "Confirm Withdrawal") and step == "withdraw_confirm":
-            from bot.handlers.wallet_handler import execute_withdrawal
-            await execute_withdrawal(update, context)
-
         elif step == "collecting_required":
             from bot.handlers.create import handle_required_field
             await handle_required_field(update, context, text)
@@ -160,14 +147,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         elif step == "target_mcap_custom":
             from bot.handlers.launch import handle_target_mcap_custom_input
             await handle_target_mcap_custom_input(update, context, text)
-
-        elif step == "withdraw_address":
-            from bot.handlers.wallet_handler import handle_withdraw_address
-            await handle_withdraw_address(update, context, text)
-
-        elif step == "withdraw_amount":
-            from bot.handlers.wallet_handler import handle_withdraw_amount
-            await handle_withdraw_amount(update, context, text)
 
         elif step == "panel_transfer_address":
             from bot.handlers.panel import handle_panel_transfer_address
@@ -374,37 +353,8 @@ async def _handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE, sessi
     """Handle the ◀ Back reply-keyboard button for text-based flows."""
     msg = update.effective_message
 
-    # ── Withdraw flow ──────────────────────────────────────────────────────
-    if step == "withdraw_confirm":
-        session["step"] = "withdraw_amount"
-        wallet = get_wallet_address()
-        try:
-            balance = await get_wallet_balance(wallet)
-        except Exception:
-            balance = 0.0
-        await msg.reply_text(
-            f"<b>Withdrawal Amount</b>\n\n"
-            f"Wallet balance: <code>{balance:.4f} SOL</code>\n\n"
-            f"How much SOL do you want to withdraw?",
-            parse_mode="HTML",
-            reply_markup=back_cancel_keyboard(),
-        )
-
-    elif step == "withdraw_amount":
-        session["step"] = "withdraw_address"
-        session["withdraw"] = {}
-        await msg.reply_text(
-            "<b>Withdraw SOL</b>\n\nEnter the destination wallet address:",
-            parse_mode="HTML",
-            reply_markup=back_cancel_keyboard(),
-        )
-
-    elif step == "withdraw_address":
-        session["step"] = "idle"
-        await msg.reply_text("Withdrawal cancelled.", reply_markup=main_menu_keyboard())
-
     # ── Panel transfer flow ────────────────────────────────────────────────
-    elif step == "panel_transfer_amount":
+    if step == "panel_transfer_amount":
         session["step"] = "panel_transfer_address"
         await msg.reply_text(
             "<b>Transfer Tokens</b>\n\nEnter the destination wallet address:",

@@ -15,8 +15,6 @@ import {
   errorMessage,
   insufficientFundsMessage,
   walletMessage,
-  withdrawReviewMessage,
-  withdrawSuccessMessage,
   panelMessage,
   burnConfirmMessage,
   burnSuccessMessage,
@@ -34,8 +32,6 @@ import {
   dexOptionsKeyboard,
   backKeyboard,
   optionalSkipKeyboard,
-  withdrawInputKeyboard,
-  withdrawConfirmKeyboard,
   authorityInlineKeyboard,
   tokenPanelKeyboard,
   burnConfirmKeyboard,
@@ -48,7 +44,6 @@ import {
   deployToken,
   getDeploymentWallet,
   getWalletBalance,
-  withdrawSol,
   getTokenBalance,
   burnTokens,
   transferSplTokens,
@@ -164,25 +159,6 @@ export function createBot(token: string): Telegraf<BotContext> {
       } else {
         await ctx.replyWithMarkdown(prompt, optionalSkipKeyboard());
       }
-    } else if (entry.step === "withdraw_address") {
-      await ctx.replyWithMarkdown(
-        "*Withdraw SOL*\n\nSend the recipient Solana wallet address.",
-        withdrawInputKeyboard()
-      );
-    } else if (entry.step === "withdraw_amount") {
-      await ctx.replyWithMarkdown(
-        `*How much SOL to withdraw?*\n\nEnter an amount (e.g. \`1.5\`).`,
-        withdrawInputKeyboard()
-      );
-    } else if (entry.step === "withdraw_confirm") {
-      const { toAddress, amount } = ctx.session.withdraw;
-      if (toAddress && amount) {
-        const balance = await getWalletBalance(getDeploymentWallet());
-        await ctx.replyWithMarkdown(
-          withdrawReviewMessage(toAddress, amount, balance),
-          withdrawConfirmKeyboard()
-        );
-      }
     } else {
       await ctx.replyWithMarkdown(mainMenuMessage(), mainMenuKeyboard());
     }
@@ -218,10 +194,9 @@ export function createBot(token: string): Telegraf<BotContext> {
 
   async function showWallet(ctx: BotContext) {
     const address = getDeploymentWallet();
-    const keyConfigured = !!process.env["PRIVATE_KEY"];
     if (!address) {
       await ctx.replyWithMarkdown(
-        "*Wallet not configured.*\n\nThe `WALLET_ADDRESS` environment variable is missing."
+        "*Receiving wallet unavailable.*\n\nThe bot's public receiving address is not available."
       );
       return;
     }
@@ -233,12 +208,12 @@ export function createBot(token: string): Telegraf<BotContext> {
     try {
       const balance = await getWalletBalance(address);
       await ctx.replyWithMarkdown(
-        walletMessage(address, balance, keyConfigured),
+        walletMessage(address, balance),
         walletRefreshKeyboard()
       );
     } catch {
       await ctx.replyWithMarkdown(
-        walletMessage(address, 0, keyConfigured) +
+        walletMessage(address, 0) +
           "\n\n_Could not fetch live balance — RPC may be unavailable._",
         walletRefreshKeyboard()
       );
@@ -249,65 +224,18 @@ export function createBot(token: string): Telegraf<BotContext> {
   bot.action("wallet_refresh", async (ctx) => {
     await ctx.answerCbQuery("Refreshing...");
     const address = getDeploymentWallet();
-    const keyConfigured = !!process.env["PRIVATE_KEY"];
     if (!address) {
       await ctx.answerCbQuery("Wallet not configured");
       return;
     }
     try {
       const balance = await getWalletBalance(address);
-      await ctx.editMessageText(walletMessage(address, balance, keyConfigured), {
+      await ctx.editMessageText(walletMessage(address, balance), {
         parse_mode: "Markdown",
         reply_markup: walletRefreshKeyboard().reply_markup,
       });
     } catch {
       await ctx.answerCbQuery("Could not fetch balance — try again");
-    }
-  });
-
-  // ── Withdraw SOL ───────────────────────────────────────────────────────────
-  bot.command("withdraw", (ctx) => startWithdraw(ctx));
-  bot.hears("Withdraw SOL", (ctx) => startWithdraw(ctx));
-
-  async function startWithdraw(ctx: BotContext) {
-    ctx.session.step = "withdraw_address";
-    ctx.session.withdraw = {};
-    ctx.session.history = [];
-    await ctx.replyWithMarkdown(
-      `*Withdraw SOL*\n\nSend the recipient Solana wallet address.`,
-      withdrawInputKeyboard()
-    );
-  }
-
-  bot.hears("Confirm Withdrawal", async (ctx) => {
-    if (ctx.session.step !== "withdraw_confirm") {
-      await ctx.replyWithMarkdown("Use /withdraw to start a withdrawal.");
-      return;
-    }
-
-    const { toAddress, amount } = ctx.session.withdraw;
-    if (!toAddress || !amount) {
-      await ctx.replyWithMarkdown("Withdrawal data missing. Use /withdraw to try again.");
-      return;
-    }
-
-    ctx.session.step = "idle";
-    ctx.session.history = [];
-    await ctx.replyWithMarkdown(`Sending \`${amount} SOL\`...`);
-
-    try {
-      const signature = await withdrawSol(toAddress, amount);
-      await ctx.replyWithMarkdown(
-        withdrawSuccessMessage(toAddress, amount, signature),
-        mainMenuKeyboard()
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger.error({ err }, "Withdrawal failed");
-      await ctx.replyWithMarkdown(
-        `*Withdrawal Failed*\n\n${msg}\n\nUse /withdraw to try again.`,
-        mainMenuKeyboard()
-      );
     }
   });
 
@@ -1054,16 +982,6 @@ export function createBot(token: string): Telegraf<BotContext> {
       return;
     }
 
-    if (ctx.session.step === "withdraw_address") {
-      await handleWithdrawAddress(ctx, text);
-      return;
-    }
-
-    if (ctx.session.step === "withdraw_amount") {
-      await handleWithdrawAmount(ctx, text);
-      return;
-    }
-
     if (ctx.session.step === "panel_transfer_address") {
       await handlePanelTransferAddress(ctx, text);
       return;
@@ -1176,57 +1094,6 @@ async function showAuthoritySettings(ctx: BotContext) {
   await ctx.replyWithMarkdown(
     "*Authority Settings*\n\nConfigure mint and freeze authority.\nRevoking makes the token immutable.",
     authorityInlineKeyboard(ctx.session.token.revokeMint!, ctx.session.token.revokeFreeze!)
-  );
-}
-
-// ── Withdrawal helpers ────────────────────────────────────────────────────────
-
-async function handleWithdrawAddress(ctx: BotContext, text: string) {
-  if (!isValidSolanaAddress(text)) {
-    await ctx.replyWithMarkdown(
-      "That doesn't look like a valid Solana address. Please try again."
-    );
-    return;
-  }
-  pushHistory(ctx);
-  ctx.session.withdraw.toAddress = text;
-  ctx.session.step = "withdraw_amount";
-  await ctx.replyWithMarkdown(
-    `*How much SOL to withdraw?*\n\nEnter an amount (e.g. \`1.5\`).`,
-    withdrawInputKeyboard()
-  );
-}
-
-async function handleWithdrawAmount(ctx: BotContext, text: string) {
-  const amount = parseFloat(text);
-  if (isNaN(amount) || amount <= 0) {
-    await ctx.replyWithMarkdown("Invalid amount. Enter a positive number (e.g. `1.5`).");
-    return;
-  }
-
-  const walletAddress = getDeploymentWallet();
-  let balance = 0;
-  try {
-    balance = await getWalletBalance(walletAddress);
-  } catch {
-    await ctx.replyWithMarkdown("Could not fetch wallet balance. Please try again.");
-    return;
-  }
-
-  if (amount + 0.01 > balance) {
-    await ctx.replyWithMarkdown(
-      `*Insufficient balance.*\n\nAvailable: \`${balance.toFixed(4)} SOL\`\nRequested: \`${amount} SOL\`\n\nReduce the amount and try again.`
-    );
-    return;
-  }
-
-  pushHistory(ctx);
-  ctx.session.withdraw.amount = amount;
-  ctx.session.step = "withdraw_confirm";
-
-  await ctx.replyWithMarkdown(
-    withdrawReviewMessage(ctx.session.withdraw.toAddress!, amount, balance),
-    withdrawConfirmKeyboard()
   );
 }
 

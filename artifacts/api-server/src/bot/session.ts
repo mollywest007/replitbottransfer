@@ -10,9 +10,6 @@ export type DeploymentStep =
   | "dex_options"
   | "deploying"
   | "done"
-  | "withdraw_address"
-  | "withdraw_amount"
-  | "withdraw_confirm"
   | "panel_transfer_address"
   | "panel_transfer_amount"
   | "panel_burn_amount";
@@ -36,11 +33,6 @@ export interface TokenConfig {
   revokeFreeze?: boolean;
 }
 
-export interface WithdrawDraft {
-  toAddress?: string;
-  amount?: number;
-}
-
 export interface PanelTransferDraft {
   toAddress?: string;
   rawAmount?: bigint;
@@ -52,7 +44,6 @@ export interface SessionData {
   step: DeploymentStep;
   collectingField?: string;
   token: TokenConfig;
-  withdraw: WithdrawDraft;
   panelTransfer: PanelTransferDraft;
   launchpad?: Launchpad;
   /** SOL the creator buys on launch. 0 = skipped. */
@@ -80,7 +71,6 @@ export function defaultSession(): SessionData {
       revokeMint: false,
       revokeFreeze: false,
     },
-    withdraw: {},
     panelTransfer: {},
     history: [],
     dexUpdate: false,
