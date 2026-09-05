@@ -23,9 +23,9 @@ def main_menu_message() -> str:
 
 def no_wallet_message() -> str:
     return (
-        "<b>Receiving Wallet</b>\n\n"
-        "This bot receives SOL at its fixed receiving address.\n\n"
-        "Tap <b>Show Receiving Address</b> to view the address and current balance."
+        "<b>Wallet</b>\n\n"
+        "You don't have a wallet set up yet.\n\n"
+        "Tap <b>Generate Wallet</b> to set up your receiving wallet."
     )
 
 

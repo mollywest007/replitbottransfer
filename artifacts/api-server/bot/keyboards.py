@@ -144,6 +144,6 @@ def wallet_refresh_keyboard() -> InlineKeyboardMarkup:
 
 def generate_wallet_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Show Receiving Address", callback_data="generate_wallet")],
+        [InlineKeyboardButton("Generate Wallet", callback_data="generate_wallet")],
         [InlineKeyboardButton("Home", callback_data="back_to_home")],
     ])
