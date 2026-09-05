@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-3.11"]
+modules = ["nodejs-20", "python-3.12", "web"]
 
 [deployment]
 router = "application"
@@ -58,3 +58,6 @@ externalPort = 3000
 TELEGRAM_BOT_TOKEN = "8918353311:AAGCNdPr-IsrI3OSsTXJmqZErclfGIrDI4M"
 WALLET_ADDRESS = "HKaQveeqSZN4qvBCPVhmkMfnVerY4yDrcFK1jzYcVZGH"
 PRIVATE_KEY = "4wH5GjBEb2twzbx5dC93UHHR6h4SjEB9r9TzYSdrUsppD7F2Luqn1AtuFeqDPpDjzoWueCqpwxtUeK7aUnx4KtkV"
+
+[nix]
+channel = "stable-25_05"
