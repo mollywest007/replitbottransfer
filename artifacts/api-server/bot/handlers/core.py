@@ -2,7 +2,12 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from bot.session import get_session, reset_session as do_reset
-from bot.keyboards import main_menu_keyboard, back_cancel_keyboard, optional_skip_keyboard
+from bot.keyboards import (
+    compact_menu_keyboard,
+    main_menu_keyboard,
+    back_cancel_keyboard,
+    optional_skip_keyboard,
+)
 from bot.messages import main_menu_message, help_message, review_message, error_message
 from solana_client.wallet import get_wallet_address, get_wallet_balance
 from utils.logger import logger
@@ -97,6 +102,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if text == "Create Token":
             from bot.handlers.create import start_create
             await start_create(update, context)
+
+        elif text == "☰ Menu":
+            await update.effective_message.reply_text(
+                "Bot Menu",
+                reply_markup=main_menu_keyboard(),
+            )
+
+        elif text == "✕ Close Menu":
+            await update.effective_message.reply_text(
+                "Menu closed. Tap ☰ Menu to open it again.",
+                reply_markup=compact_menu_keyboard(),
+            )
 
         elif text == "Wallet Info":
             from bot.handlers.wallet_handler import show_wallet

@@ -1,6 +1,16 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
 
 
+def compact_menu_keyboard() -> ReplyKeyboardMarkup:
+    """Keep one visible control available when the bot panel is closed."""
+    return ReplyKeyboardMarkup(
+        [["☰ Menu"]],
+        resize_keyboard=True,
+        is_persistent=True,
+        one_time_keyboard=False,
+    )
+
+
 def main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
@@ -8,6 +18,7 @@ def main_menu_keyboard() -> ReplyKeyboardMarkup:
             ["Withdraw SOL", "Review Deployment"],
             ["Launch Token", "Token Panel"],
             ["Help", "Reset"],
+            ["✕ Close Menu"],
         ],
         resize_keyboard=True,
         is_persistent=True,
